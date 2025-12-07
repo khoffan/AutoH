@@ -1,0 +1,9 @@
+{
+    "browser": "https://www.google.com",
+    "antigravity": "C:\\Users\\Nitro\\AppData\\Local\\Programs\\Antigravity\\Antigravity.exe",
+    "postman": "C:\\Users\\Nitro\\AppData\\Local\\Postman\\Postman.exe",
+    "slack": "C:\\Users\\Nitro\\AppData\\Local\\slack\\slack.exe",
+    "mongodb": "C:\\Users\\Nitro\\AppData\\Local\\MongoDBCompass\\MongoDBCompass.exe",
+    "run_time_minute": 20,
+    "debounce_second": 1
+}
