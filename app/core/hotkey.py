@@ -9,9 +9,9 @@ from core.launcher import safe_open_app
 from config.load_config import load_config
 from ui.status import show_status_pop
 
-cf = load_config()
-RUN_TIME      = cf.get("run_time_minute", 20) * 60
-DEBOUNCE_SECOND = cf.get("debounce_second", 2)
+
+RUN_TIME      =  20 * 60
+DEBOUNCE_SECOND = 2
 
 START_TIME = time.time()
 system_active = True
@@ -24,14 +24,14 @@ def toggle_paused():
     global system_paused
     system_paused = not system_paused
     write_log(f"Paused: {system_paused}")
-    show_status_pop()
+    show_status_pop(start_time=START_TIME, runtime=RUN_TIME, system_active=system_active, system_paused=system_paused, already_opened=already_opened, status_window=status_window)
 
 def start_system():
     global already_opened, system_active
     already_opened = False
     system_active = True
     write_log("System reset")
-    show_status_pop()
+    show_status_pop(start_time=START_TIME, runtime=RUN_TIME, system_active=system_active, system_paused=system_paused, already_opened=already_opened, status_window=status_window)
 
 # =========================
 # ✅ SOFT → TERMINATE → KILL
@@ -80,87 +80,66 @@ def auto_kill():
         time.sleep(10)  # ✅ ลด resource
 
 
-def dev_mode():
+def launch_apps_mode(mode_name, cf):
     global already_opened, last_press_time
-    dev_cf = cf.get("dev", "")
-    BROWSER_URL     = dev_cf.get("browser", "https://www.google.com")
-    ANTIGRAVITY     = dev_cf.get("antigravity", "")
-    POSTMAN_PATH   = dev_cf.get("postman", "")
-    SLACK_PATH     = dev_cf.get("slack", "")
-    MONGODB_PATH   = dev_cf.get("mongodb", "")
     
-
-    now = time.time()   
-    if now - last_press_time < DEBOUNCE_SECOND:
-        return
-    last_press_time = now
-
-    if system_paused:
-        write_log("Blocked: system paused")
-        return
-
-    if not system_active or already_opened:
-        write_log("Blocked: already executed")
-        return
-
-    already_opened = True
-    write_log("OPEN ALL triggered")
-
-    try:
-        webbrowser.open(BROWSER_URL)
-
-        safe_open_app(ANTIGRAVITY, "antigravity")
-        safe_open_app(POSTMAN_PATH, "postman")
-        safe_open_app(SLACK_PATH, "slack")
-        safe_open_app(MONGODB_PATH, "mongodb")
-
-        write_log("All applications handled")
-
-    except Exception as e:
-        write_log("Open error: " + str(e))
-
-def home_mode():
-    global already_opened, last_press_time
-    dev_cf = cf.get("home", "")
-    BROWSER_URL     = dev_cf.get("browser", "https://www.google.com")
-
+    # 1. Check Debounce
     now = time.time()
     if now - last_press_time < DEBOUNCE_SECOND:
         return
     last_press_time = now
 
-    if system_paused:
-        write_log("Blocked: system paused")
+    # 2. Check System Status
+    if system_paused or not system_active or already_opened:
+        write_log(f"Blocked: System state not ready for {mode_name}")
         return
 
-    if not system_active or already_opened:
-        write_log("Blocked: already executed")
+    # 3. Load Config ตาม mode_name ที่ส่งมา (เช่น 'dev', 'home' หรือชื่อใหม่ๆ)
+    mode_cf = cf.get(mode_name, {})
+    if not mode_cf:
+        write_log(f"Config for {mode_name} not found")
         return
 
     already_opened = True
-    write_log("OPEN ALL triggered")
+    write_log(f"MODE: {mode_name} triggered")
 
     try:
-        if len(BROWSER_URL) > 2:
-            for url in BROWSER_URL.split(","):
+        # เปิด Browser (รองรับทั้ง string เดี่ยว และ comma-separated)
+        urls = mode_cf.get("browser", "")
+        if(urls != ""):
+            for url in (urls.split(",") if "," in urls else [urls]):
                 webbrowser.open(url.strip())
-        else:
-            webbrowser.open("https://www.google.com")
+
+        # เปิด Apps อื่นๆ ที่ระบุใน Config
+        # 2. เปิด Apps (ดึงจาก key "apps" ที่เราออกแบบไว้)
+        apps_to_open = mode_cf.get("apps", {})
+        for app_name, app_path in apps_to_open.items():
+            if app_path:
+                safe_open_app(app_path, app_name)
+
+        write_log(f"All apps for {mode_name} handled")
     except Exception as e:
-        write_log("Open error: " + str(e))
+        write_log(f"Error in {mode_name}: {str(e)}")
 
 
 def start_hotkey_listener():
+    
+    cf = load_config()
+    modes = cf.get("modes", {})
     # =========================
     # ✅ HOTKEYS
     # =========================
-    keyboard.add_hotkey('ctrl+alt+w', dev_mode)
-    keyboard.add_hotkey('ctrl+alt+h', home_mode)
+    for mode_name, settings in modes.items():
+        hk = settings.get("hotkey")
+        if hk:
+            # ส่งแค่ mode_name เข้าไป launch_apps_mode จะไปอ่านแอปต่อเอง
+            print(mode_name, hk)
+            keyboard.add_hotkey(hk, lambda m=mode_name: launch_apps_mode(m, modes))
     keyboard.add_hotkey('ctrl+alt+s', start_system)
     keyboard.add_hotkey('ctrl+alt+q', stop_system)
     keyboard.add_hotkey('ctrl+alt+p', toggle_paused)
     
-    keyboard.add_hotkey('ctrl+alt+i', show_status_pop(start_time=START_TIME, runtime=RUN_TIME, system_active=system_active, system_paused=system_paused, already_opened=already_opened, status_window=status_window))
+    keyboard.add_hotkey('ctrl+alt+i', lambda: show_status_pop(start_time=START_TIME, runtime=RUN_TIME, system_active=system_active, system_paused=system_paused, already_opened=already_opened, status_window=status_window))
 
     # =========================
     # ✅ START SYSTEM
