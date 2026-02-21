@@ -2,9 +2,11 @@
 
 **AutoH** เป็นเครื่องมือเพิ่มประสิทธิภาพการทำงาน (Productivity Tool) ที่ช่วยให้คุณเปิดชุดโปรแกรมและเว็บไซต์ที่จำเป็นสำหรับแต่ละโปรเจกต์ได้พร้อมกันด้วยการกด Hotkey เพียงครั้งเดียว
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.12-blue.svg)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
+---
+
+## 🌐 Project Website
+คุณสามารถเข้าชมหน้าเว็บไซต์หลัก เพื่ออ่านรายละเอียดเพิ่มเติมและดาวน์โหลดเวอร์ชันล่าสุดได้ที่นี่:
+👉 **[AutoH Official Website](https://auto-h.vercel.app)** 👈
 
 ---
 
@@ -19,11 +21,10 @@
 
 ## 📦 การติดตั้ง (Installation)
 
-คุณสามารถติดตั้ง AutoH ได้ง่ายๆ ผ่านตัวติดตั้ง Windows:
+คุณสามารถติดตั้ง AutoH ได้ง่ายๆ ผ่าน 2 ช่องทาง:
 
-1. ไปที่หน้า **[Releases](https://github.com/YOUR_USERNAME/YOUR_REPO/releases)**
-2. ดาวน์โหลดไฟล์ `AutoH_Installer_v1.0.zip`
-3. แตกไฟล์แล้วรัน `setup.exe` เพื่อทำการติดตั้ง
+1. **ผ่าน Website:** ไปที่ [AutoH Website]((https://auto-h.vercel.app)) แล้วกดปุ่ม Download
+2. **ผ่าน GitHub Releases:** ดาวน์โหลดไฟล์จากหน้า **[Releases]((https://github.com/khoffan/AutoH/releases/tag/autoh_v1.0.0))**
 
 > [!IMPORTANT]
 > **หมายเหตุสำหรับ Windows Defender:** เนื่องจากโปรแกรมนี้ยังไม่ได้ลงทะเบียนแบบเสียค่าใช้จ่าย (Digital Signature) 
