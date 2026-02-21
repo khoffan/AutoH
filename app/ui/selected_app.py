@@ -1,9 +1,16 @@
 import tkinter as tk
+import sys
 from tkinter import simpledialog
 from config.load_config import save_config_file, load_config
 from system.normalize import normalize_apps
 from system.registry import get_apps_from_registry
 from system.start_menus import get_apps_from_start_menu
+
+def on_closing(root):
+    root.destroy()
+    sys.exit()
+
+
 
 def select_apps_ui(apps, existing_hotkeys):
     main_root = tk.Tk()      # สร้างหน้าต่างหลัก
@@ -12,10 +19,15 @@ def select_apps_ui(apps, existing_hotkeys):
     selected_apps = []
     filtered_apps = apps.copy()
 
+    # ดักจับถ้ามีการปิดหน้าต่างหลัก (เผื่อไว้)
+    main_root.protocol("WM_DELETE_WINDOW", lambda: on_closing(main_root))
+
     root = tk.Toplevel() # ใช้ Toplevel แทน Tk ถ้าเรียกจาก main window
     root.title("Hotkey Mode Setup")
     root.geometry("900x700")
 
+    # --- ส่วนที่เพิ่ม: ดักจับการกดปุ่ม X ที่หน้าต่าง Setup ---
+    root.protocol("WM_DELETE_WINDOW", lambda: on_closing(main_root))
     # --- ส่วนที่ 1: การจัดการข้อมูล ---
     def on_search(*_):
         nonlocal filtered_apps
@@ -120,6 +132,8 @@ def select_apps_ui(apps, existing_hotkeys):
 
     root.final_data = None
     root.wait_window()
+
+    main_root.destroy()
     return root.final_data
 
 def get_user_configuration():

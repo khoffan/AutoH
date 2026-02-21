@@ -3,3 +3,5 @@ build/
 venv/
 *.spec
 log.txt
+ouput/
+*.iss
