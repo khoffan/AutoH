@@ -19,7 +19,7 @@ def load_config():
         cf = json.load(f)
     return cf
 
-def save_config_file(mode_name, hotkey, app_list):
+def save_config_file(mode_name, hotkey, app_list, urls=""):
     config_path = 'config.json'
     
     # อ่านไฟล์เดิมก่อน (ถ้ามี)
@@ -33,10 +33,13 @@ def save_config_file(mode_name, hotkey, app_list):
     app_mapping = {app["name"]: (app.get("path") or app.get("exe")) for app in app_list}
 
     # เพิ่มหรืออัปเดตโหมด
-    data["modes"][mode_name] = {
+    mode_data = {
         "hotkey": hotkey,
         "apps": app_mapping
     }
+    if urls:
+        mode_data["urls"] = urls
+    data["modes"][mode_name] = mode_data
 
     # บันทึกกลับลงไฟล์
     with open(config_path, 'w', encoding='utf-8') as f:

@@ -1,13 +1,17 @@
 import time
 import webbrowser
 import keyboard
+import queue
 import threading
+import subprocess
+import sys
 import psutil
 import os
 from core.logger import write_log
 from core.launcher import safe_open_app
 from config.load_config import load_config
 from ui.status import show_status_pop
+from ui.selected_app import get_user_configuration
 
 
 RUN_TIME      =  20 * 60
@@ -20,6 +24,19 @@ already_opened = False
 shutdown_requested = False
 last_press_time = 0
 status_window = None
+
+# =========================
+# ✅ TASK QUEUE SYSTEM
+# =========================
+task_queue = queue.Queue()
+is_ui_open = False  # ล็อคป้องกันเปิด UI ซ้อน
+
+
+def request_task(func, *args):
+    """โยนงานเข้า Queue เพื่อให้ Main Thread ประมวลผล"""
+    task_queue.put((func, args))
+
+
 def toggle_paused():
     global system_paused
     system_paused = not system_paused
@@ -105,7 +122,7 @@ def launch_apps_mode(mode_name, cf):
 
     try:
         # เปิด Browser (รองรับทั้ง string เดี่ยว และ comma-separated)
-        urls = mode_cf.get("browser", "")
+        urls = mode_cf.get("urls", "")
         if(urls != ""):
             for url in (urls.split(",") if "," in urls else [urls]):
                 webbrowser.open(url.strip())
@@ -122,28 +139,102 @@ def launch_apps_mode(mode_name, cf):
         write_log(f"Error in {mode_name}: {str(e)}")
 
 
+# =========================
+# ✅ UI TASK (with lock)
+# =========================
+def open_config_ui():
+    """เปิดหน้าต่าง Config UI — ป้องกันเปิดซ้อนด้วย is_ui_open lock"""
+    global is_ui_open
+
+    if is_ui_open:
+        write_log("⚠️ UI is already open, ignoring request")
+        return
+
+    is_ui_open = True
+    write_log("Opening config UI (subprocess)")
+
+    try:
+        # Flet ต้องรันใน main thread ของ process ใหม่
+        app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        proc = subprocess.Popen(
+            [
+                sys.executable, "-c",
+                f"import sys; sys.path.insert(0, r'{app_root}'); "
+                "from ui.selected_app import _run_configuration; _run_configuration()"
+            ],
+            cwd=app_root,
+        )
+        # รอให้ subprocess จบ (blocking ใน main thread — ไม่ให้งานอื่นแทรก)
+        proc.wait()
+        write_log("Config UI closed")
+    except Exception as e:
+        write_log(f"Error opening config UI: {e}")
+    finally:
+        is_ui_open = False
+
+
+def open_status_ui():
+    """เปิดหน้าต่าง Status — ป้องกันเปิดซ้อนด้วย is_ui_open lock"""
+    global is_ui_open
+
+    if is_ui_open:
+        write_log("⚠️ UI is already open, ignoring request")
+        return
+
+    is_ui_open = True
+    try:
+        show_status_pop(
+            start_time=START_TIME, runtime=RUN_TIME,
+            system_active=system_active, system_paused=system_paused,
+            already_opened=already_opened, status_window=status_window
+        )
+    except Exception as e:
+        write_log(f"Error showing status: {e}")
+    finally:
+        is_ui_open = False
+
+
+# =========================
+# ✅ MAIN EVENT LOOP
+# =========================
 def start_hotkey_listener():
     
     cf = load_config()
     modes = cf.get("modes", {})
+
     # =========================
-    # ✅ HOTKEYS
+    # ✅ HOTKEYS → ทุกอันโยนเข้า Queue
     # =========================
     for mode_name, settings in modes.items():
         hk = settings.get("hotkey")
         if hk:
-            # ส่งแค่ mode_name เข้าไป launch_apps_mode จะไปอ่านแอปต่อเอง
             print(mode_name, hk)
-            keyboard.add_hotkey(hk, lambda m=mode_name: launch_apps_mode(m, modes))
-    keyboard.add_hotkey('ctrl+alt+s', start_system)
-    keyboard.add_hotkey('ctrl+alt+q', stop_system)
-    keyboard.add_hotkey('ctrl+alt+p', toggle_paused)
-    
-    keyboard.add_hotkey('ctrl+alt+i', lambda: show_status_pop(start_time=START_TIME, runtime=RUN_TIME, system_active=system_active, system_paused=system_paused, already_opened=already_opened, status_window=status_window))
+            try:
+                keyboard.add_hotkey(hk, lambda m=mode_name: request_task(launch_apps_mode, m, modes))
+            except ValueError as e:
+                write_log(f"⚠️ Skipping invalid hotkey '{hk}' for mode '{mode_name}': {e}")
+
+    keyboard.add_hotkey('ctrl+alt+s', lambda: request_task(start_system))
+    keyboard.add_hotkey('ctrl+alt+q', lambda: request_task(stop_system))
+    keyboard.add_hotkey('ctrl+alt+p', lambda: request_task(toggle_paused))
+    keyboard.add_hotkey('ctrl+alt+e', lambda: request_task(open_config_ui))
+    keyboard.add_hotkey('ctrl+alt+i', lambda: request_task(open_status_ui))
 
     # =========================
     # ✅ START SYSTEM
     # =========================
     write_log("System started")
     threading.Thread(target=auto_kill, daemon=True).start()
-    keyboard.wait()
+
+    # =========================
+    # ✅ MAIN LOOP — แทน keyboard.wait()
+    # =========================
+    while not shutdown_requested:
+        try:
+            func, args = task_queue.get(timeout=0.5)
+            try:
+                func(*args)
+            except Exception as e:
+                write_log(f"Task error: {e}")
+        except queue.Empty:
+            pass  # ไม่มีงาน — วนรอต่อ
