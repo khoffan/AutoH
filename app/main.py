@@ -3,7 +3,7 @@ from ui.selected_app import get_user_configuration
 
 
 def main():
-    get_user_configuration()
+    # get_user_configuration()
     
     start_hotkey_listener()
     
