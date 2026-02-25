@@ -1,10 +1,9 @@
 from core.hotkey import start_hotkey_listener
-from ui.selected_app import get_user_configuration
-
+from core.notification import send_toast
 
 def main():
     # get_user_configuration()
-    
+    send_toast("AutoH", "System started")
     start_hotkey_listener()
     
 

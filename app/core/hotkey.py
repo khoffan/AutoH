@@ -12,6 +12,7 @@ from core.launcher import safe_open_app
 from config.load_config import load_config
 from ui.status import show_status_pop
 from ui.selected_app import get_user_configuration
+from core.notification import send_toast
 
 
 RUN_TIME      =  20 * 60
@@ -41,6 +42,7 @@ def toggle_paused():
     global system_paused
     system_paused = not system_paused
     write_log(f"Paused: {system_paused}")
+    send_toast("AutoH", "System paused")
     show_status_pop(start_time=START_TIME, runtime=RUN_TIME, system_active=system_active, system_paused=system_paused, already_opened=already_opened, status_window=status_window)
 
 def start_system():
@@ -48,6 +50,7 @@ def start_system():
     already_opened = False
     system_active = True
     write_log("System reset")
+    send_toast("AutoH", "System reset")
     show_status_pop(start_time=START_TIME, runtime=RUN_TIME, system_active=system_active, system_paused=system_paused, already_opened=already_opened, status_window=status_window)
 
 # =========================
@@ -60,6 +63,9 @@ def soft_shutdown():
 
     shutdown_requested = True
     write_log("Shutdown requested")
+    
+    send_toast("AutoH", "System will be shutdown")
+    
 
     def shutdown_sequence():
         try:
@@ -80,7 +86,6 @@ def soft_shutdown():
 
         except Exception as e:
             write_log("Shutdown error: " + str(e))
-
     threading.Thread(target=shutdown_sequence, daemon=True).start()
 
 def stop_system():
@@ -95,6 +100,8 @@ def auto_kill():
             soft_shutdown()
             break
         time.sleep(10)  # ✅ ลด resource
+    if(shutdown_requested):
+        send_toast("AutoH", "Auto kill triggered")
 
 
 def launch_apps_mode(mode_name, cf):
@@ -160,7 +167,7 @@ def open_config_ui():
             [
                 sys.executable, "-c",
                 f"import sys; sys.path.insert(0, r'{app_root}'); "
-                "from ui.selected_app import _run_configuration; _run_configuration()"
+                "from ui.selected_app import get_user_configuration; get_user_configuration()"
             ],
             cwd=app_root,
         )
