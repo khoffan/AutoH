@@ -1,6 +1,6 @@
 import tkinter as tk
 import sys
-from tkinter import simpledialog
+from tkinter import messagebox
 from config.load_config import save_config_file, load_config
 from system.normalize import normalize_apps
 from system.registry import get_apps_from_registry
