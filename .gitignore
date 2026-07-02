@@ -5,3 +5,4 @@ venv/
 log.txt
 ouput/
 *.iss
+config.json
