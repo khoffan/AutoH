@@ -22,7 +22,7 @@ def get_apps_from_registry():
                                 # ดึง DisplayName
                                 try:
                                     name, _ = winreg.QueryValueEx(subkey, "DisplayName")
-                                except:
+                                except Exception:
                                     continue  # ถ้าไม่มีชื่อแอป ข้ามไปเลย
 
                                 if not name:
@@ -34,7 +34,7 @@ def get_apps_from_registry():
                                     install_location, _ = winreg.QueryValueEx(
                                         subkey, "InstallLocation"
                                     )
-                                except:
+                                except Exception:
                                     pass
 
                                 # 2. ดึง DisplayIcon มาเป็นทางเลือกสำรอง
@@ -43,7 +43,7 @@ def get_apps_from_registry():
                                     display_icon, _ = winreg.QueryValueEx(subkey, "DisplayIcon")
                                     # คลีนพวก ",0" หรือ引號ออก (เช่น "C:\App.exe",0 -> C:\App.exe)
                                     display_icon = re.sub(r",[-\d]+$", "", display_icon).strip('"')
-                                except:
+                                except Exception:
                                     pass
 
                                 exe_path = ""
@@ -99,7 +99,7 @@ def get_apps_from_registry():
                                 apps.append({"name": name.strip(), "exe": exe_path})
                         except Exception:
                             pass
-            except:
+            except Exception:
                 pass
 
     return apps
