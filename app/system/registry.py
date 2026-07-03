@@ -95,8 +95,15 @@ def get_apps_from_registry():
                                 ):
                                     exe_path = display_icon
 
+                                if exe_path:
+                                    exe_path = os.path.realpath(os.path.normpath(exe_path))
+                                    if not os.path.exists(exe_path):
+                                        exe_path = ""
+
                                 # บันทึกผลลัพธ์
-                                apps.append({"name": name.strip(), "exe": exe_path})
+                                apps.append(
+                                    {"name": name.strip(), "exe": exe_path, "source": "registry"}
+                                )
                         except Exception:
                             pass
             except Exception:
