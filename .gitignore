@@ -4,5 +4,7 @@ venv/
 *.spec
 log.txt
 ouput/
+output/
+installer-output/
 *.iss
 config.json
