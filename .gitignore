@@ -8,3 +8,4 @@ output/
 installer-output/
 *.iss
 config.json
+*.zip

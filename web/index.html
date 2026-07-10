@@ -1,649 +1,961 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" class="scroll-smooth">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AutoH — Hotkey Automation for Windows</title>
-    <meta name="description" content="AutoH is a desktop hotkey automation tool for Windows. Launch groups of apps and URLs with a single keystroke. Configure custom modes, hotkeys, and workflows.">
+    <meta
+      name="description"
+      content="AutoH is a desktop hotkey automation tool for Windows. Launch groups of apps and URLs with a single keystroke. Configure custom modes, hotkeys, and workflows."
+    />
 
     <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="shortcut icon" href="https://raw.githubusercontent.com/khoffan/AutoH/refs/heads/main/assets/autoH_icon.ico" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="shortcut icon"
+      href="https://raw.githubusercontent.com/khoffan/AutoH/refs/heads/main/assets/autoH_icon.ico"
+      type="image/x-icon"
+    />
 
     <!-- Tailwind CSS v4 CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: {
-                            50: '#eef2ff',
-                            100: '#e0e7ff',
-                            200: '#c7d2fe',
-                            300: '#a5b4fc',
-                            400: '#818cf8',
-                            500: '#6366f1',
-                            600: '#4f46e5',
-                            700: '#4338ca',
-                            800: '#3730a3',
-                            900: '#312e81',
-                        },
-                        surface: {
-                            900: '#0a0a1a',
-                            800: '#0f0f2e',
-                            700: '#161638',
-                            600: '#1e1e48',
-                        }
-                    },
-                    animation: {
-                        'float': 'float 6s ease-in-out infinite',
-                        'glow': 'glow 3s ease-in-out infinite alternate',
-                        'fade-up': 'fadeUp 0.8s ease-out forwards',
-                        'fade-up-delay': 'fadeUp 0.8s ease-out 0.2s forwards',
-                        'fade-up-delay-2': 'fadeUp 0.8s ease-out 0.4s forwards',
-                        'slide-in-left': 'slideInLeft 0.8s ease-out forwards',
-                        'slide-in-right': 'slideInRight 0.8s ease-out forwards',
-                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                    },
-                    keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0px)' },
-                            '50%': { transform: 'translateY(-20px)' },
-                        },
-                        glow: {
-                            '0%': { boxShadow: '0 0 20px rgba(99,102,241,0.3)' },
-                            '100%': { boxShadow: '0 0 40px rgba(99,102,241,0.6), 0 0 80px rgba(99,102,241,0.2)' },
-                        },
-                        fadeUp: {
-                            '0%': { opacity: '0', transform: 'translateY(30px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        },
-                        slideInLeft: {
-                            '0%': { opacity: '0', transform: 'translateX(-40px)' },
-                            '100%': { opacity: '1', transform: 'translateX(0)' },
-                        },
-                        slideInRight: {
-                            '0%': { opacity: '0', transform: 'translateX(40px)' },
-                            '100%': { opacity: '1', transform: 'translateX(0)' },
-                        },
-                    },
-                },
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "system-ui", "sans-serif"],
             },
-        }
+            colors: {
+              brand: {
+                50: "#eef2ff",
+                100: "#e0e7ff",
+                200: "#c7d2fe",
+                300: "#a5b4fc",
+                400: "#818cf8",
+                500: "#6366f1",
+                600: "#4f46e5",
+                700: "#4338ca",
+                800: "#3730a3",
+                900: "#312e81",
+              },
+              surface: {
+                900: "#0a0a1a",
+                800: "#0f0f2e",
+                700: "#161638",
+                600: "#1e1e48",
+              },
+            },
+            animation: {
+              float: "float 6s ease-in-out infinite",
+              glow: "glow 3s ease-in-out infinite alternate",
+              "fade-up": "fadeUp 0.8s ease-out forwards",
+              "fade-up-delay": "fadeUp 0.8s ease-out 0.2s forwards",
+              "fade-up-delay-2": "fadeUp 0.8s ease-out 0.4s forwards",
+              "slide-in-left": "slideInLeft 0.8s ease-out forwards",
+              "slide-in-right": "slideInRight 0.8s ease-out forwards",
+              "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+            },
+            keyframes: {
+              float: {
+                "0%, 100%": { transform: "translateY(0px)" },
+                "50%": { transform: "translateY(-20px)" },
+              },
+              glow: {
+                "0%": { boxShadow: "0 0 20px rgba(99,102,241,0.3)" },
+                "100%": {
+                  boxShadow: "0 0 40px rgba(99,102,241,0.6), 0 0 80px rgba(99,102,241,0.2)",
+                },
+              },
+              fadeUp: {
+                "0%": { opacity: "0", transform: "translateY(30px)" },
+                "100%": { opacity: "1", transform: "translateY(0)" },
+              },
+              slideInLeft: {
+                "0%": { opacity: "0", transform: "translateX(-40px)" },
+                "100%": { opacity: "1", transform: "translateX(0)" },
+              },
+              slideInRight: {
+                "0%": { opacity: "0", transform: "translateX(40px)" },
+                "100%": { opacity: "1", transform: "translateX(0)" },
+              },
+            },
+          },
+        },
+      };
     </script>
     <style>
-        /* Custom glassmorphism */
-        .glass {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        .glass-strong {
-            background: rgba(255, 255, 255, 0.06);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
+      /* Custom glassmorphism */
+      .glass {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .glass-strong {
+        background: rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
 
-        /* Gradient text */
-        .gradient-text {
-            background: linear-gradient(135deg, #818cf8 0%, #06b6d4 50%, #a78bfa 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
+      /* Gradient text */
+      .gradient-text {
+        background: linear-gradient(135deg, #818cf8 0%, #06b6d4 50%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
 
-        /* Hero gradient orbs */
-        .gradient-orb-1 {
-            position: absolute;
-            width: 600px;
-            height: 600px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
-            top: -200px;
-            right: -200px;
-            animation: float 8s ease-in-out infinite;
-        }
-        .gradient-orb-2 {
-            position: absolute;
-            width: 500px;
-            height: 500px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(6,182,212,0.12) 0%, transparent 70%);
-            bottom: -150px;
-            left: -150px;
-            animation: float 10s ease-in-out infinite reverse;
-        }
-        .gradient-orb-3 {
-            position: absolute;
-            width: 300px;
-            height: 300px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(167,139,250,0.1) 0%, transparent 70%);
-            top: 40%;
-            left: 50%;
-            animation: float 7s ease-in-out infinite 2s;
-        }
+      /* Hero gradient orbs */
+      .gradient-orb-1 {
+        position: absolute;
+        width: 600px;
+        height: 600px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+        top: -200px;
+        right: -200px;
+        animation: float 8s ease-in-out infinite;
+      }
+      .gradient-orb-2 {
+        position: absolute;
+        width: 500px;
+        height: 500px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, transparent 70%);
+        bottom: -150px;
+        left: -150px;
+        animation: float 10s ease-in-out infinite reverse;
+      }
+      .gradient-orb-3 {
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(167, 139, 250, 0.1) 0%, transparent 70%);
+        top: 40%;
+        left: 50%;
+        animation: float 7s ease-in-out infinite 2s;
+      }
 
-        /* Keyboard key styling */
-        .kbd {
-            display: inline-block;
-            padding: 4px 10px;
-            font-size: 0.8rem;
-            font-family: 'Inter', monospace;
-            color: #c7d2fe;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 6px;
-            box-shadow: 0 2px 0 rgba(0,0,0,0.3);
-        }
+      /* Keyboard key styling */
+      .kbd {
+        display: inline-block;
+        padding: 4px 10px;
+        font-size: 0.8rem;
+        font-family: "Inter", monospace;
+        color: #c7d2fe;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+      }
 
-        /* Scroll reveal animation */
-        .reveal {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity 0.8s ease, transform 0.8s ease;
-        }
-        .reveal.active {
-            opacity: 1;
-            transform: translateY(0);
-        }
+      /* Scroll reveal animation */
+      .reveal {
+        opacity: 0;
+        transform: translateY(30px);
+        transition:
+          opacity 0.8s ease,
+          transform 0.8s ease;
+      }
+      .reveal.active {
+        opacity: 1;
+        transform: translateY(0);
+      }
 
-        /* Feature card hover */
-        .feature-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-        }
-        .feature-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 20px 60px rgba(99,102,241,0.15);
-            border-color: rgba(99,102,241,0.3);
-        }
+      /* Feature card hover */
+      .feature-card {
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease,
+          border-color 0.3s ease;
+      }
+      .feature-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 20px 60px rgba(99, 102, 241, 0.15);
+        border-color: rgba(99, 102, 241, 0.3);
+      }
 
-        /* Step connector line */
-        .step-line {
-            position: absolute;
-            top: 32px;
-            left: 50%;
-            width: 2px;
-            height: calc(100% - 32px);
-            background: linear-gradient(to bottom, rgba(99,102,241,0.4), transparent);
-        }
+      /* Step connector line */
+      .step-line {
+        position: absolute;
+        top: 32px;
+        left: 50%;
+        width: 2px;
+        height: calc(100% - 32px);
+        background: linear-gradient(to bottom, rgba(99, 102, 241, 0.4), transparent);
+      }
 
-        /* Download button glow */
-        .btn-download {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
+      /* Download button glow */
+      .btn-download {
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+      }
+      .btn-download::before {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        background: linear-gradient(135deg, #6366f1, #06b6d4, #a78bfa, #6366f1);
+        background-size: 300% 300%;
+        border-radius: inherit;
+        z-index: -1;
+        animation: gradient-rotate 4s ease infinite;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      .btn-download:hover::before {
+        opacity: 1;
+      }
+      @keyframes gradient-rotate {
+        0% {
+          background-position: 0% 50%;
         }
-        .btn-download::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            background: linear-gradient(135deg, #6366f1, #06b6d4, #a78bfa, #6366f1);
-            background-size: 300% 300%;
-            border-radius: inherit;
-            z-index: -1;
-            animation: gradient-rotate 4s ease infinite;
-            opacity: 0;
-            transition: opacity 0.3s ease;
+        50% {
+          background-position: 100% 50%;
         }
-        .btn-download:hover::before {
-            opacity: 1;
+        100% {
+          background-position: 0% 50%;
         }
-        @keyframes gradient-rotate {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
+      }
 
-        /* Smooth scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #0a0a1a; }
-        ::-webkit-scrollbar-thumb { background: #312e81; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #4338ca; }
+      /* Smooth scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0a0a1a;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #312e81;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #4338ca;
+      }
 
-        /* Mobile nav animation */
-        .mobile-menu {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-        }
-        .mobile-menu.open {
-            max-height: 300px;
-        }
+      /* Mobile nav animation */
+      .mobile-menu {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+      }
+      .mobile-menu.open {
+        max-height: 300px;
+      }
     </style>
-</head>
-<body class="bg-surface-900 text-gray-200 font-sans antialiased overflow-x-hidden">
-
+  </head>
+  <body class="bg-surface-900 text-gray-200 font-sans antialiased overflow-x-hidden">
     <!-- ═══════════════════════════════ NAVBAR ═══════════════════════════════ -->
     <nav class="fixed top-0 w-full z-50 glass-strong">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <!-- Logo -->
-                <a href="#" class="flex items-center gap-2 group">
-                    <img src="https://raw.githubusercontent.com/khoffan/AutoH/refs/heads/main/assets/autoH_icon.ico" alt="AutoH Icon" class="w-10 h-10">
-                    <span class="text-xl font-bold text-white tracking-tight">Auto<span class="text-brand-400">H</span></span>
-                </a>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <!-- Logo -->
+          <a href="#" class="flex items-center gap-2 group">
+            <img
+              src="https://raw.githubusercontent.com/khoffan/AutoH/refs/heads/main/assets/autoH_icon.ico"
+              alt="AutoH Icon"
+              class="w-10 h-10"
+            />
+            <span class="text-xl font-bold text-white tracking-tight"
+              >Auto<span class="text-brand-400">H</span></span
+            >
+          </a>
 
-                <!-- Desktop Nav -->
-                <div class="hidden md:flex items-center gap-8">
-                    <a href="#features" class="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
-                    <a href="#how-it-works" class="text-sm text-gray-400 hover:text-white transition-colors">How It Works</a>
-                    <a href="#shortcuts" class="text-sm text-gray-400 hover:text-white transition-colors">Shortcuts</a>
-                    <a href="https://github.com/khoffan/AutoH/releases/download/autoh_v1.0.0/autoh_installer_v1.0.zip" download="autoh_installer_v1.0.zip" class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition-all shadow-lg shadow-brand-600/25 hover:shadow-brand-500/40">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/></svg>
-                        Download
-                    </a>
-                </div>
+          <!-- Desktop Nav -->
+          <div class="hidden md:flex items-center gap-8">
+            <a href="#features" class="text-sm text-gray-400 hover:text-white transition-colors"
+              >Features</a
+            >
+            <a href="#how-it-works" class="text-sm text-gray-400 hover:text-white transition-colors"
+              >How It Works</a
+            >
+            <a href="#shortcuts" class="text-sm text-gray-400 hover:text-white transition-colors"
+              >Shortcuts</a
+            >
+            <a
+              href="https://github.com/khoffan/AutoH/releases/download/version1.1.0/auto-h_v1.1.0.zip"
+              download="autoh_installer_v1.1.0.zip"
+              class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition-all shadow-lg shadow-brand-600/25 hover:shadow-brand-500/40"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"
+                />
+              </svg>
+              Download
+            </a>
+          </div>
 
-                <!-- Mobile Hamburger -->
-                <button id="menu-toggle" class="md:hidden text-gray-400 hover:text-white transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                </button>
-            </div>
-
-            <!-- Mobile Menu -->
-            <div id="mobile-menu" class="mobile-menu md:hidden">
-                <div class="pb-4 space-y-2">
-                    <a href="#features" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all">Features</a>
-                    <a href="#how-it-works" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all">How It Works</a>
-                    <a href="#shortcuts" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all">Shortcuts</a>
-                    <a href="https://github.com/khoffan/AutoH/releases/download/autoh_v1.0.0/autoh_installer_v1.0.zip" download="autoh_installer_v1.0.zip" class="block px-3 py-2 rounded-lg text-sm text-brand-400 font-semibold hover:bg-brand-600/20 transition-all">Download</a>
-                </div>
-            </div>
+          <!-- Mobile Hamburger -->
+          <button
+            id="menu-toggle"
+            class="md:hidden text-gray-400 hover:text-white transition-colors"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
         </div>
+
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="mobile-menu md:hidden">
+          <div class="pb-4 space-y-2">
+            <a
+              href="#features"
+              class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+              >Features</a
+            >
+            <a
+              href="#how-it-works"
+              class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+              >How It Works</a
+            >
+            <a
+              href="#shortcuts"
+              class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+              >Shortcuts</a
+            >
+            <a
+              href="https://github.com/khoffan/AutoH/releases/download/version1.1.0/auto-h_v1.1.0.zip"
+              download="autoh_installer_v1.1.0.zip"
+              class="block px-3 py-2 rounded-lg text-sm text-brand-400 font-semibold hover:bg-brand-600/20 transition-all"
+              >Download</a
+            >
+          </div>
+        </div>
+      </div>
     </nav>
 
     <!-- ═══════════════════════════════ HERO ═══════════════════════════════ -->
     <section class="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
-        <!-- Background orbs -->
-        <div class="gradient-orb-1"></div>
-        <div class="gradient-orb-2"></div>
-        <div class="gradient-orb-3"></div>
+      <!-- Background orbs -->
+      <div class="gradient-orb-1"></div>
+      <div class="gradient-orb-2"></div>
+      <div class="gradient-orb-3"></div>
 
-        <div class="relative max-w-5xl mx-auto px-4 sm:px-6 text-center">
-            <!-- Badge -->
-            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-xs font-medium text-brand-300 mb-8 animate-fade-up">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                Windows Desktop Automation Tool
-            </div>
-
-            <!-- Headline -->
-            <h1 class="text-5xl sm:text-6xl lg:text-7xl font-black leading-tight tracking-tight opacity-0 animate-fade-up">
-                One Hotkey.<br>
-                <span class="gradient-text">All Your Apps.</span>
-            </h1>
-
-            <!-- Sub-headline -->
-            <p class="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed opacity-0 animate-fade-up-delay">
-                AutoH lets you configure custom keyboard shortcuts to instantly launch groups of applications and websites. Set up your workflow once, access it forever with a single keystroke.
-            </p>
-
-            <!-- CTA Buttons -->
-            <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 opacity-0 animate-fade-up-delay-2">
-                <a href="https://github.com/khoffan/AutoH/releases/download/autoh_v1.0.0/autoh_installer_v1.0.zip" download="autoh_installer_v1.0.zip" class="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white font-bold text-lg shadow-2xl shadow-brand-600/30 hover:shadow-brand-500/40 transition-all hover:scale-105 active:scale-95">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/></svg>
-                    Download Free
-                </a>
-                <a href="#features" class="inline-flex items-center gap-2 px-8 py-4 rounded-xl glass hover:bg-white/5 text-gray-300 hover:text-white font-semibold transition-all">
-                    Learn More
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                </a>
-            </div>
-
-            <!-- Hotkey preview -->
-            <div class="mt-16 inline-flex items-center gap-3 glass-strong rounded-2xl px-8 py-5 animate-float">
-                <span class="kbd">Ctrl</span>
-                <span class="text-gray-500">+</span>
-                <span class="kbd">Alt</span>
-                <span class="text-gray-500">+</span>
-                <span class="kbd">W</span>
-                <span class="text-gray-500 mx-2">→</span>
-                <div class="flex items-center gap-2">
-                    <span class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 text-sm">🌐</span>
-                    <span class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-sm">💻</span>
-                    <span class="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-sm">📁</span>
-                    <span class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm">📝</span>
-                </div>
-            </div>
+      <div class="relative max-w-5xl mx-auto px-4 sm:px-6 text-center">
+        <!-- Badge -->
+        <div
+          class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-xs font-medium text-brand-300 mb-8 animate-fade-up"
+        >
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          Windows Desktop Automation Tool
         </div>
+
+        <!-- Headline -->
+        <h1
+          class="text-5xl sm:text-6xl lg:text-7xl font-black leading-tight tracking-tight opacity-0 animate-fade-up"
+        >
+          One Hotkey.<br />
+          <span class="gradient-text">All Your Apps.</span>
+        </h1>
+
+        <!-- Sub-headline -->
+        <p
+          class="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed opacity-0 animate-fade-up-delay"
+        >
+          AutoH lets you configure custom keyboard shortcuts to instantly launch groups of
+          applications and websites. Set up your workflow once, access it forever with a single
+          keystroke.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div
+          class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 opacity-0 animate-fade-up-delay-2"
+        >
+          <a
+            href="https://github.com/khoffan/AutoH/releases/download/version1.1.0/auto-h_v1.1.0.zip"
+            download="autoh_installer_v1.1.0.zip"
+            class="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white font-bold text-lg shadow-2xl shadow-brand-600/30 hover:shadow-brand-500/40 transition-all hover:scale-105 active:scale-95"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"
+              />
+            </svg>
+            Download Free
+          </a>
+          <a
+            href="#features"
+            class="inline-flex items-center gap-2 px-8 py-4 rounded-xl glass hover:bg-white/5 text-gray-300 hover:text-white font-semibold transition-all"
+          >
+            Learn More
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </a>
+        </div>
+
+        <!-- Hotkey preview -->
+        <div
+          class="mt-16 inline-flex items-center gap-3 glass-strong rounded-2xl px-8 py-5 animate-float"
+        >
+          <span class="kbd">Ctrl</span>
+          <span class="text-gray-500">+</span>
+          <span class="kbd">Alt</span>
+          <span class="text-gray-500">+</span>
+          <span class="kbd">W</span>
+          <span class="text-gray-500 mx-2">→</span>
+          <div class="flex items-center gap-2">
+            <span
+              class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 text-sm"
+              >🌐</span
+            >
+            <span
+              class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-sm"
+              >💻</span
+            >
+            <span
+              class="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-sm"
+              >📁</span
+            >
+            <span
+              class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm"
+              >📝</span
+            >
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ═══════════════════════════════ FEATURES ═══════════════════════════════ -->
     <section id="features" class="relative py-28 sm:py-36">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- Section Header -->
-            <div class="text-center mb-16 reveal">
-                <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-brand-400 bg-brand-500/10 mb-4">Features</span>
-                <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
-                    Everything you need to <span class="gradient-text">automate your workflow</span>
-                </h2>
-                <p class="mt-4 text-gray-400 max-w-xl mx-auto">Streamline your daily routine with powerful hotkey automation built for Windows power users.</p>
-            </div>
-
-            <!-- Feature Cards Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Feature 1 -->
-                <div class="feature-card glass rounded-2xl p-8 reveal">
-                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-brand-500/20 to-brand-600/10 flex items-center justify-center text-2xl mb-6">
-                        ⌨️
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-3">Custom Hotkey Modes</h3>
-                    <p class="text-gray-400 leading-relaxed">Define unlimited modes like "Work", "Gaming", "Study" — each with its own hotkey and set of apps to launch.</p>
-                </div>
-
-                <!-- Feature 2 -->
-                <div class="feature-card glass rounded-2xl p-8 reveal">
-                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 flex items-center justify-center text-2xl mb-6">
-                        🚀
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-3">Instant App Launch</h3>
-                    <p class="text-gray-400 leading-relaxed">Open multiple applications and browser URLs simultaneously with a single keystroke — no clicking, no searching.</p>
-                </div>
-
-                <!-- Feature 3 -->
-                <div class="feature-card glass rounded-2xl p-8 reveal">
-                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center text-2xl mb-6">
-                        ⏸️
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-3">Pause & Resume</h3>
-                    <p class="text-gray-400 leading-relaxed">Toggle the system on and off with <span class="kbd">Ctrl+Alt+P</span>. Restart anytime with <span class="kbd">Ctrl+Alt+S</span>.</p>
-                </div>
-
-                <!-- Feature 4 -->
-                <div class="feature-card glass rounded-2xl p-8 reveal">
-                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center text-2xl mb-6">
-                        🛡️
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-3">Auto-Shutdown</h3>
-                    <p class="text-gray-400 leading-relaxed">AutoH gracefully terminates itself after a configurable period, keeping your system clean and resource-free.</p>
-                </div>
-
-                <!-- Feature 5 -->
-                <div class="feature-card glass rounded-2xl p-8 reveal">
-                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-rose-500/20 to-rose-600/10 flex items-center justify-center text-2xl mb-6">
-                        🖥️
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-3">Visual Setup UI</h3>
-                    <p class="text-gray-400 leading-relaxed">Configure modes through an intuitive graphical interface — browse installed apps, set hotkeys, and add URLs visually.</p>
-                </div>
-
-                <!-- Feature 6 -->
-                <div class="feature-card glass rounded-2xl p-8 reveal">
-                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500/20 to-violet-600/10 flex items-center justify-center text-2xl mb-6">
-                        📋
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-3">JSON Config</h3>
-                    <p class="text-gray-400 leading-relaxed">All settings stored in a simple <code class="text-brand-300">config.json</code> file — easy to back up, share, or edit manually.</p>
-                </div>
-            </div>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Section Header -->
+        <div class="text-center mb-16 reveal">
+          <span
+            class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-brand-400 bg-brand-500/10 mb-4"
+            >Features</span
+          >
+          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+            Everything you need to <span class="gradient-text">automate your workflow</span>
+          </h2>
+          <p class="mt-4 text-gray-400 max-w-xl mx-auto">
+            Streamline your daily routine with powerful hotkey automation built for Windows power
+            users.
+          </p>
         </div>
+
+        <!-- Feature Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Feature 1 -->
+          <div class="feature-card glass rounded-2xl p-8 reveal">
+            <div
+              class="w-14 h-14 rounded-xl bg-gradient-to-br from-brand-500/20 to-brand-600/10 flex items-center justify-center text-2xl mb-6"
+            >
+              ⌨️
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">Custom Hotkey Modes</h3>
+            <p class="text-gray-400 leading-relaxed">
+              Define unlimited modes like "Work", "Gaming", "Study" — each with its own hotkey and
+              set of apps to launch.
+            </p>
+          </div>
+
+          <!-- Feature 2 -->
+          <div class="feature-card glass rounded-2xl p-8 reveal">
+            <div
+              class="w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 flex items-center justify-center text-2xl mb-6"
+            >
+              🚀
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">Instant App Launch</h3>
+            <p class="text-gray-400 leading-relaxed">
+              Open multiple applications and browser URLs simultaneously with a single keystroke —
+              no clicking, no searching.
+            </p>
+          </div>
+
+          <!-- Feature 3 -->
+          <div class="feature-card glass rounded-2xl p-8 reveal">
+            <div
+              class="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center text-2xl mb-6"
+            >
+              ⏸️
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">Pause & Resume</h3>
+            <p class="text-gray-400 leading-relaxed">
+              Toggle the system on and off with <span class="kbd">Ctrl+Alt+P</span>. Restart anytime
+              with <span class="kbd">Ctrl+Alt+S</span>.
+            </p>
+          </div>
+
+          <!-- Feature 4 -->
+          <div class="feature-card glass rounded-2xl p-8 reveal">
+            <div
+              class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center text-2xl mb-6"
+            >
+              🛡️
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">Auto-Shutdown</h3>
+            <p class="text-gray-400 leading-relaxed">
+              AutoH gracefully terminates itself after a configurable period, keeping your system
+              clean and resource-free.
+            </p>
+          </div>
+
+          <!-- Feature 5 -->
+          <div class="feature-card glass rounded-2xl p-8 reveal">
+            <div
+              class="w-14 h-14 rounded-xl bg-gradient-to-br from-rose-500/20 to-rose-600/10 flex items-center justify-center text-2xl mb-6"
+            >
+              🖥️
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">Visual Setup UI</h3>
+            <p class="text-gray-400 leading-relaxed">
+              Configure modes through an intuitive graphical interface — browse installed apps, set
+              hotkeys, and add URLs visually.
+            </p>
+          </div>
+
+          <!-- Feature 6 -->
+          <div class="feature-card glass rounded-2xl p-8 reveal">
+            <div
+              class="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500/20 to-violet-600/10 flex items-center justify-center text-2xl mb-6"
+            >
+              📋
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">JSON Config</h3>
+            <p class="text-gray-400 leading-relaxed">
+              All settings stored in a simple <code class="text-brand-300">config.json</code> file —
+              easy to back up, share, or edit manually.
+            </p>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ═══════════════════════════════ HOW IT WORKS ═══════════════════════════════ -->
     <section id="how-it-works" class="relative py-28 sm:py-36">
-        <!-- Subtle background gradient -->
-        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-900/5 to-transparent"></div>
+      <!-- Subtle background gradient -->
+      <div
+        class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-900/5 to-transparent"
+      ></div>
 
-        <div class="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- Section Header -->
-            <div class="text-center mb-20 reveal">
-                <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-cyan-400 bg-cyan-500/10 mb-4">How It Works</span>
-                <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
-                    Up and running in <span class="gradient-text">three steps</span>
-                </h2>
-            </div>
-
-            <!-- Steps -->
-            <div class="space-y-16 sm:space-y-24">
-                <!-- Step 1 -->
-                <div class="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 reveal">
-                    <div class="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-brand-600/30">
-                        1
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold text-white mb-2">Download & Install</h3>
-                        <p class="text-gray-400 text-lg leading-relaxed">Grab the portable <code class="text-brand-300 bg-brand-500/10 px-2 py-0.5 rounded">main.exe</code> — no installation needed. Just place it in a folder and run.</p>
-                    </div>
-                </div>
-
-                <!-- Connector -->
-                <div class="hidden sm:block w-0.5 h-8 mx-auto bg-gradient-to-b from-brand-500/40 to-cyan-500/40 rounded-full"></div>
-
-                <!-- Step 2 -->
-                <div class="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 reveal">
-                    <div class="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-600 to-cyan-500 flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-cyan-600/30">
-                        2
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold text-white mb-2">Configure Your Modes</h3>
-                        <p class="text-gray-400 text-lg leading-relaxed">The setup wizard walks you through creating your first mode — choose apps from your system, assign a hotkey, and optionally add URLs.</p>
-                    </div>
-                </div>
-
-                <!-- Connector -->
-                <div class="hidden sm:block w-0.5 h-8 mx-auto bg-gradient-to-b from-cyan-500/40 to-violet-500/40 rounded-full"></div>
-
-                <!-- Step 3 -->
-                <div class="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 reveal">
-                    <div class="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 to-violet-500 flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-violet-600/30">
-                        3
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold text-white mb-2">Press Your Hotkey</h3>
-                        <p class="text-gray-400 text-lg leading-relaxed">Hit your custom shortcut and watch all your apps and websites spring to life instantly. It's that simple.</p>
-                    </div>
-                </div>
-            </div>
+      <div class="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Section Header -->
+        <div class="text-center mb-20 reveal">
+          <span
+            class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-cyan-400 bg-cyan-500/10 mb-4"
+            >How It Works</span
+          >
+          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+            Up and running in <span class="gradient-text">three steps</span>
+          </h2>
         </div>
+
+        <!-- Steps -->
+        <div class="space-y-16 sm:space-y-24">
+          <!-- Step 1 -->
+          <div class="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 reveal">
+            <div
+              class="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-brand-600/30"
+            >
+              1
+            </div>
+            <div>
+              <h3 class="text-2xl font-bold text-white mb-2">Download & Install</h3>
+              <p class="text-gray-400 text-lg leading-relaxed">
+                Grab the portable
+                <code class="text-brand-300 bg-brand-500/10 px-2 py-0.5 rounded">main.exe</code> —
+                no installation needed. Just place it in a folder and run.
+              </p>
+            </div>
+          </div>
+
+          <!-- Connector -->
+          <div
+            class="hidden sm:block w-0.5 h-8 mx-auto bg-gradient-to-b from-brand-500/40 to-cyan-500/40 rounded-full"
+          ></div>
+
+          <!-- Step 2 -->
+          <div class="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 reveal">
+            <div
+              class="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-600 to-cyan-500 flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-cyan-600/30"
+            >
+              2
+            </div>
+            <div>
+              <h3 class="text-2xl font-bold text-white mb-2">Configure Your Modes</h3>
+              <p class="text-gray-400 text-lg leading-relaxed">
+                The setup wizard walks you through creating your first mode — choose apps from your
+                system, assign a hotkey, and optionally add URLs.
+              </p>
+            </div>
+          </div>
+
+          <!-- Connector -->
+          <div
+            class="hidden sm:block w-0.5 h-8 mx-auto bg-gradient-to-b from-cyan-500/40 to-violet-500/40 rounded-full"
+          ></div>
+
+          <!-- Step 3 -->
+          <div class="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 reveal">
+            <div
+              class="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 to-violet-500 flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-violet-600/30"
+            >
+              3
+            </div>
+            <div>
+              <h3 class="text-2xl font-bold text-white mb-2">Press Your Hotkey</h3>
+              <p class="text-gray-400 text-lg leading-relaxed">
+                Hit your custom shortcut and watch all your apps and websites spring to life
+                instantly. It's that simple.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ═══════════════════════════════ SHORTCUTS ═══════════════════════════════ -->
     <section id="shortcuts" class="relative py-28 sm:py-36">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- Section Header -->
-            <div class="text-center mb-16 reveal">
-                <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-violet-400 bg-violet-500/10 mb-4">Keyboard Shortcuts</span>
-                <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
-                    Built-in <span class="gradient-text">system controls</span>
-                </h2>
-                <p class="mt-4 text-gray-400 max-w-xl mx-auto">Master AutoH with these default keyboard shortcuts. Custom mode hotkeys are fully configurable.</p>
-            </div>
-
-            <!-- Shortcuts Grid -->
-            <div class="grid gap-4 reveal">
-                <!-- Shortcut Row 1 -->
-                <div class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-lg group-hover:scale-110 transition-transform">▶</div>
-                        <div>
-                            <p class="font-semibold text-white">Start / Restart System</p>
-                            <p class="text-sm text-gray-500">Reset and reactivate the hotkey listener</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <span class="kbd">Ctrl</span><span class="text-gray-600">+</span><span class="kbd">Alt</span><span class="text-gray-600">+</span><span class="kbd">S</span>
-                    </div>
-                </div>
-
-                <!-- Shortcut Row 2 -->
-                <div class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400 text-lg group-hover:scale-110 transition-transform">⏹</div>
-                        <div>
-                            <p class="font-semibold text-white">Stop / Quit</p>
-                            <p class="text-sm text-gray-500">Gracefully shut down AutoH</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <span class="kbd">Ctrl</span><span class="text-gray-600">+</span><span class="kbd">Alt</span><span class="text-gray-600">+</span><span class="kbd">Q</span>
-                    </div>
-                </div>
-
-                <!-- Shortcut Row 3 -->
-                <div class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 text-lg group-hover:scale-110 transition-transform">⏸</div>
-                        <div>
-                            <p class="font-semibold text-white">Pause / Resume</p>
-                            <p class="text-sm text-gray-500">Toggle the hotkey system on or off</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <span class="kbd">Ctrl</span><span class="text-gray-600">+</span><span class="kbd">Alt</span><span class="text-gray-600">+</span><span class="kbd">P</span>
-                    </div>
-                </div>
-
-                <!-- Shortcut Row 4 -->
-                <div class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 text-lg group-hover:scale-110 transition-transform">ℹ</div>
-                        <div>
-                            <p class="font-semibold text-white">Show Status</p>
-                            <p class="text-sm text-gray-500">Display current system state popup</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <span class="kbd">Ctrl</span><span class="text-gray-600">+</span><span class="kbd">Alt</span><span class="text-gray-600">+</span><span class="kbd">I</span>
-                    </div>
-                </div>
-
-                <!-- Shortcut Row 5 (Custom) -->
-                <div class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group border-brand-500/20">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-400 text-lg group-hover:scale-110 transition-transform">⚡</div>
-                        <div>
-                            <p class="font-semibold text-white">Launch Mode</p>
-                            <p class="text-sm text-gray-500">Your custom modes — fully configurable!</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <span class="kbd">Ctrl</span><span class="text-gray-600">+</span><span class="kbd">Alt</span><span class="text-gray-600">+</span><span class="kbd text-brand-300 border-brand-500/30 bg-brand-500/10">?</span>
-                    </div>
-                </div>
-            </div>
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Section Header -->
+        <div class="text-center mb-16 reveal">
+          <span
+            class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-violet-400 bg-violet-500/10 mb-4"
+            >Keyboard Shortcuts</span
+          >
+          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+            Built-in <span class="gradient-text">system controls</span>
+          </h2>
+          <p class="mt-4 text-gray-400 max-w-xl mx-auto">
+            Master AutoH with these default keyboard shortcuts. Custom mode hotkeys are fully
+            configurable.
+          </p>
         </div>
+
+        <!-- Shortcuts Grid -->
+        <div class="grid gap-4 reveal">
+          <!-- Shortcut Row 1 -->
+          <div
+            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group"
+          >
+            <div class="flex items-center gap-4">
+              <div
+                class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-lg group-hover:scale-110 transition-transform"
+              >
+                ▶
+              </div>
+              <div>
+                <p class="font-semibold text-white">Start / Restart System</p>
+                <p class="text-sm text-gray-500">Reset and reactivate the hotkey listener</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
+              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
+              ><span class="kbd">S</span>
+            </div>
+          </div>
+
+          <!-- Shortcut Row 2 -->
+          <div
+            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group"
+          >
+            <div class="flex items-center gap-4">
+              <div
+                class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400 text-lg group-hover:scale-110 transition-transform"
+              >
+                ⏹
+              </div>
+              <div>
+                <p class="font-semibold text-white">Stop / Quit</p>
+                <p class="text-sm text-gray-500">Gracefully shut down AutoH</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
+              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
+              ><span class="kbd">Q</span>
+            </div>
+          </div>
+
+          <!-- Shortcut Row 3 -->
+          <div
+            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group"
+          >
+            <div class="flex items-center gap-4">
+              <div
+                class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 text-lg group-hover:scale-110 transition-transform"
+              >
+                ⏸
+              </div>
+              <div>
+                <p class="font-semibold text-white">Pause / Resume</p>
+                <p class="text-sm text-gray-500">Toggle the hotkey system on or off</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
+              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
+              ><span class="kbd">P</span>
+            </div>
+          </div>
+
+          <!-- Shortcut Row 4 -->
+          <div
+            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group"
+          >
+            <div class="flex items-center gap-4">
+              <div
+                class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 text-lg group-hover:scale-110 transition-transform"
+              >
+                ℹ
+              </div>
+              <div>
+                <p class="font-semibold text-white">Show Status</p>
+                <p class="text-sm text-gray-500">Display current system state popup</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
+              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
+              ><span class="kbd">I</span>
+            </div>
+          </div>
+
+          <!-- Shortcut Row 5 (Custom) -->
+          <div
+            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group border-brand-500/20"
+          >
+            <div class="flex items-center gap-4">
+              <div
+                class="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-400 text-lg group-hover:scale-110 transition-transform"
+              >
+                ⚡
+              </div>
+              <div>
+                <p class="font-semibold text-white">Launch Mode</p>
+                <p class="text-sm text-gray-500">Your custom modes — fully configurable!</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
+              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
+              ><span class="kbd text-brand-300 border-brand-500/30 bg-brand-500/10">?</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ═══════════════════════════════ DOWNLOAD ═══════════════════════════════ -->
     <section id="download" class="relative py-28 sm:py-36 overflow-hidden">
-        <!-- Background glow -->
-        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-900/10 to-transparent"></div>
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-brand-600/5 blur-3xl"></div>
+      <!-- Background glow -->
+      <div
+        class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-900/10 to-transparent"
+      ></div>
+      <div
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-brand-600/5 blur-3xl"
+      ></div>
 
-        <div class="relative max-w-3xl mx-auto px-4 sm:px-6 text-center">
-            <div class="reveal">
-                <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-emerald-400 bg-emerald-500/10 mb-4">Free Download</span>
-                <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
-                    Ready to <span class="gradient-text">supercharge</span> your workflow?
-                </h2>
-                <p class="text-gray-400 text-lg mb-10 max-w-xl mx-auto">Download AutoH for free. Portable, lightweight, and no installation required.</p>
+      <div class="relative max-w-3xl mx-auto px-4 sm:px-6 text-center">
+        <div class="reveal">
+          <span
+            class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-emerald-400 bg-emerald-500/10 mb-4"
+            >Free Download</span
+          >
+          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
+            Ready to <span class="gradient-text">supercharge</span> your workflow?
+          </h2>
+          <p class="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
+            Download AutoH for free. Portable, lightweight, and no installation required.
+          </p>
 
-                <!-- Download Button -->
-                <a href="https://github.com/khoffan/AutoH/releases/download/autoh_v1.0.0/autoh_installer_v1.0.zip" download="autoh_installer_v1.0.zip" id="download-btn" class="btn-download inline-flex items-center gap-3 px-10 py-5 rounded-2xl bg-gradient-to-r from-brand-600 to-cyan-600 hover:from-brand-500 hover:to-cyan-500 text-white font-bold text-xl shadow-2xl shadow-brand-600/20 transition-all hover:scale-105 active:scale-95 animate-glow">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/></svg>
-                    Download AutoH
-                </a>
+          <!-- Download Button -->
+          <a
+            href="https://github.com/khoffan/AutoH/releases/download/autoh_v1.0.0/autoh_installer_v1.0.zip"
+            download="autoh_installer_v1.0.zip"
+            id="download-btn"
+            class="btn-download inline-flex items-center gap-3 px-10 py-5 rounded-2xl bg-gradient-to-r from-brand-600 to-cyan-600 hover:from-brand-500 hover:to-cyan-500 text-white font-bold text-xl shadow-2xl shadow-brand-600/20 transition-all hover:scale-105 active:scale-95 animate-glow"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"
+              />
+            </svg>
+            Download AutoH
+          </a>
 
-                <!-- Requirements -->
-                <div class="mt-12 glass rounded-2xl p-6 inline-block text-left">
-                    <h4 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">System Requirements</h4>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                        <div class="flex items-center gap-2 text-gray-400">
-                            <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                            Windows 10 or later
-                        </div>
-                        <div class="flex items-center gap-2 text-gray-400">
-                            <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                            No installation needed
-                        </div>
-                        <div class="flex items-center gap-2 text-gray-400">
-                            <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                            Lightweight (~12 MB)
-                        </div>
-                        <div class="flex items-center gap-2 text-gray-400">
-                            <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                            100% Free & Open Source
-                        </div>
-                    </div>
-                </div>
+          <!-- Requirements -->
+          <div class="mt-12 glass rounded-2xl p-6 inline-block text-left">
+            <h4 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
+              System Requirements
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div class="flex items-center gap-2 text-gray-400">
+                <svg
+                  class="w-4 h-4 text-emerald-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Windows 10 or later
+              </div>
+              <div class="flex items-center gap-2 text-gray-400">
+                <svg
+                  class="w-4 h-4 text-emerald-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                No installation needed
+              </div>
+              <div class="flex items-center gap-2 text-gray-400">
+                <svg
+                  class="w-4 h-4 text-emerald-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Lightweight (~12 MB)
+              </div>
+              <div class="flex items-center gap-2 text-gray-400">
+                <svg
+                  class="w-4 h-4 text-emerald-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                100% Free & Open Source
+              </div>
             </div>
+          </div>
         </div>
+      </div>
     </section>
 
     <!-- ═══════════════════════════════ FOOTER ═══════════════════════════════ -->
     <footer class="border-t border-white/5 py-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
-                <!-- Logo -->
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs">AH</div>
-                    <span class="text-lg font-bold text-white">Auto<span class="text-brand-400">H</span></span>
-                </div>
-
-                <!-- Links -->
-                <div class="flex items-center gap-6 text-sm text-gray-500">
-                    <a href="#features" class="hover:text-gray-300 transition-colors">Features</a>
-                    <a href="#how-it-works" class="hover:text-gray-300 transition-colors">How It Works</a>
-                    <a href="#" class="hover:text-gray-300 transition-colors">GitHub</a>
-                </div>
-
-                <!-- Copyright -->
-                <p class="text-sm text-gray-600">
-                    &copy; 2026 AutoH. All rights reserved.
-                </p>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+          <!-- Logo -->
+          <div class="flex items-center gap-2">
+            <div
+              class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs"
+            >
+              AH
             </div>
+            <span class="text-lg font-bold text-white"
+              >Auto<span class="text-brand-400">H</span></span
+            >
+          </div>
+
+          <!-- Links -->
+          <div class="flex items-center gap-6 text-sm text-gray-500">
+            <a href="#features" class="hover:text-gray-300 transition-colors">Features</a>
+            <a href="#how-it-works" class="hover:text-gray-300 transition-colors">How It Works</a>
+            <a href="#" class="hover:text-gray-300 transition-colors">GitHub</a>
+          </div>
+
+          <!-- Copyright -->
+          <p class="text-sm text-gray-600">&copy; 2026 AutoH. All rights reserved.</p>
         </div>
+      </div>
     </footer>
 
     <!-- ═══════════════════════════════ SCRIPTS ═══════════════════════════════ -->
     <script>
-        // Mobile menu toggle
-        const menuToggle = document.getElementById('menu-toggle');
-        const mobileMenu = document.getElementById('mobile-menu');
-        menuToggle.addEventListener('click', () => {
-            mobileMenu.classList.toggle('open');
+      // Mobile menu toggle
+      const menuToggle = document.getElementById("menu-toggle");
+      const mobileMenu = document.getElementById("mobile-menu");
+      menuToggle.addEventListener("click", () => {
+        mobileMenu.classList.toggle("open");
+      });
+
+      // Close mobile menu on link click
+      mobileMenu.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => {
+          mobileMenu.classList.remove("open");
         });
+      });
 
-        // Close mobile menu on link click
-        mobileMenu.querySelectorAll('a').forEach(link => {
-            link.addEventListener('click', () => {
-                mobileMenu.classList.remove('open');
-            });
-        });
-
-        // Scroll reveal animation
-        const revealElements = document.querySelectorAll('.reveal');
-        const revealObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('active');
-                    revealObserver.unobserve(entry.target);
-                }
-            });
-        }, {
-            threshold: 0.15,
-            rootMargin: '0px 0px -50px 0px'
-        });
-
-        revealElements.forEach(el => revealObserver.observe(el));
-
-        // Navbar background on scroll
-        const nav = document.querySelector('nav');
-        window.addEventListener('scroll', () => {
-            if (window.scrollY > 50) {
-                nav.classList.add('shadow-lg', 'shadow-black/20');
-            } else {
-                nav.classList.remove('shadow-lg', 'shadow-black/20');
+      // Scroll reveal animation
+      const revealElements = document.querySelectorAll(".reveal");
+      const revealObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("active");
+              revealObserver.unobserve(entry.target);
             }
-        });
+          });
+        },
+        {
+          threshold: 0.15,
+          rootMargin: "0px 0px -50px 0px",
+        },
+      );
+
+      revealElements.forEach((el) => revealObserver.observe(el));
+
+      // Navbar background on scroll
+      const nav = document.querySelector("nav");
+      window.addEventListener("scroll", () => {
+        if (window.scrollY > 50) {
+          nav.classList.add("shadow-lg", "shadow-black/20");
+        } else {
+          nav.classList.remove("shadow-lg", "shadow-black/20");
+        }
+      });
     </script>
-</body>
+  </body>
 </html>
