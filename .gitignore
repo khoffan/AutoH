@@ -9,3 +9,5 @@ installer-output/
 *.iss
 config.json
 *.zip
+autoh.db*
+config.json.bak

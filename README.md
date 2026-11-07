@@ -17,6 +17,7 @@
 - **One-Click Execution:** สั่งรันทุกอย่างผ่านคีย์ลัดที่คุณตั้งเอง (เช่น `Ctrl+Alt+W`)
 - **Smart GUI:** อินเทอร์เฟซใหม่ด้วย CustomTkinter, light mode only, plain colors และ contrast ชัดเจน
 - **Mode Management:** สร้าง แก้ไข เปลี่ยนชื่อ และลบ mode ได้จากหน้าจอเดียว
+- **Import / Export:** สำรองหรือย้าย mode ผ่านไฟล์ JSON จากหน้า Mode Manager
 - **Lightweight:** ทำงานเบื้องหลัง กินทรัพยากรเครื่องน้อยมาก
 
 ---
@@ -51,3 +52,10 @@
 ├── 📁 ui           # ส่วนติดต่อผู้ใช้ (CustomTkinter)
 └── 🐍 main.py       # จุดเริ่มต้นของโปรแกรม
 ```
+
+---
+
+## 💾 การเก็บข้อมูล (Storage)
+
+config และ log เก็บในไฟล์ SQLite `%LOCALAPPDATA%\AutoH\autoh.db` และย้ายข้อมูลจาก `config.json` เดิมให้อัตโนมัติ
+รายละเอียดและสถานะการทดสอบ (ยังไม่ได้ manual test) ดูที่ [docs/storage.md](docs/storage.md)

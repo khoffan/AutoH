@@ -1,57 +1,80 @@
+"""Config API backed by SQLite (see config/database.py).
+
+Function names and return shapes are unchanged from the JSON version, so
+callers keep working: load_config() -> {"modes": {name: {hotkey, apps, urls?}}}.
+"""
 import copy
 import json
-import os
-import sys
+import sqlite3
 
-from config.get_base_dir import get_base_dir
+from config import database
 
-
-def get_config_path():
-    return os.path.join(get_base_dir(), "config.json")
+DEFAULT_CONFIG = {"modes": {}}
 
 
-def load_config(default=None, exit_on_missing=True):
-    config_path = get_config_path()
+def load_config(default=None, exit_on_missing=False):
+    """Return {"modes": {...}}. Never raises; falls back to `default` on error.
 
-    if not os.path.exists(config_path):
-        if not exit_on_missing or default is not None:
-            fallback = {"modes": {}} if default is None else default
-            return copy.deepcopy(fallback)
-
-        print("config.json not found:", config_path)
-        input("Press Enter to exit...")
-        sys.exit(1)
-
-    with open(config_path, "r", encoding="utf-8") as config_file:
-        return json.load(config_file)
-
-
-def save_config(config_data):
-    config_path = get_config_path()
-    with open(config_path, "w", encoding="utf-8") as config_file:
-        json.dump(config_data, config_file, indent=4, ensure_ascii=False)
+    `exit_on_missing` is kept for backward compatibility and ignored.
+    """
+    try:
+        with database.connect() as conn:
+            modes = database.read_modes(conn)
+    except sqlite3.Error as exc:
+        print(f"Cannot read config: {exc}")
+        return copy.deepcopy(DEFAULT_CONFIG if default is None else default)
+    return {"modes": modes}
 
 
 def save_modes(modes):
-    save_config({"modes": modes})
+    """Replace all modes. Returns True on success."""
+    try:
+        normalized = database.normalize_modes({"modes": modes})
+        with database.connect() as conn:
+            database.write_modes(conn, normalized)
+        return True
+    except (ValueError, sqlite3.Error) as exc:
+        print(f"Cannot save config: {exc}")
+        return False
+
+
+def save_config(config_data):
+    return save_modes(config_data.get("modes", {}))
 
 
 def save_config_file(mode_name, hotkey, app_list, urls=""):
-    data = load_config(default={"modes": {}}, exit_on_missing=False)
-    app_mapping = {app["name"]: (app.get("path") or app.get("exe")) for app in app_list}
-
+    modes = load_config()["modes"]
     mode_data = {
         "hotkey": hotkey,
-        "apps": app_mapping,
+        "apps": {app["name"]: (app.get("path") or app.get("exe")) for app in app_list},
     }
     if urls:
         mode_data["urls"] = urls
-
-    data.setdefault("modes", {})[mode_name] = mode_data
-    save_config(data)
+    modes[mode_name] = mode_data
+    return save_modes(modes)
 
 
 def delete_mode(mode_name):
-    data = load_config(default={"modes": {}}, exit_on_missing=False)
-    data.setdefault("modes", {}).pop(mode_name, None)
-    save_config(data)
+    modes = load_config()["modes"]
+    modes.pop(mode_name, None)
+    return save_modes(modes)
+
+
+def export_config(file_path):
+    """Write current modes to a JSON file. Raises OSError on failure."""
+    data = load_config()
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
+
+def read_import_file(file_path):
+    """Read and validate a JSON config file. Returns modes dict.
+
+    Raises ValueError (bad content) or OSError (cannot read). Nothing is saved.
+    """
+    with open(file_path, "r", encoding="utf-8-sig") as f:
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Not valid JSON (line {exc.lineno}): {exc.msg}") from exc
+    return database.normalize_modes(data)

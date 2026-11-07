@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
-from config.load_config import load_config, save_modes
+from config.load_config import export_config, load_config, read_import_file, save_modes
 from system.normalize import normalize_apps
 from system.registry import get_apps_from_registry
 from system.start_menus import get_apps_from_start_menu
@@ -136,9 +136,29 @@ class ConfigWindow(ctk.CTkToplevel):
             label_text_color=APP_THEME["text"],
         )
         self.modes_frame.grid(
-            row=2, column=0, sticky="nsew", padx=PADDING["panel"], pady=(0, PADDING["panel"])
+            row=2, column=0, sticky="nsew", padx=PADDING["panel"], pady=(0, PADDING["control"])
         )
         self.modes_frame.grid_columnconfigure(0, weight=1)
+
+        transfer_row = ctk.CTkFrame(panel, fg_color="transparent")
+        transfer_row.grid(
+            row=3, column=0, sticky="ew", padx=PADDING["panel"], pady=(0, PADDING["panel"])
+        )
+        transfer_row.grid_columnconfigure((0, 1), weight=1)
+        for column, (label, command) in enumerate(
+            (("Import JSON", self.import_modes), ("Export JSON", self.export_modes))
+        ):
+            ctk.CTkButton(
+                transfer_row,
+                text=label,
+                command=command,
+                fg_color=APP_THEME["surface_alt"],
+                hover_color=APP_THEME["panel_border"],
+                text_color=APP_THEME["text"],
+                border_width=1,
+                border_color=APP_THEME["panel_border"],
+                height=36,
+            ).grid(row=0, column=column, sticky="ew", padx=(0 if column == 0 else 4, 4 if column == 0 else 0))
 
     def _build_source_panel(self):
         panel = self._panel_frame("Discover Apps")
@@ -545,7 +565,9 @@ class ConfigWindow(ctk.CTkToplevel):
             self.current_modes.pop(self.editing_mode_name, None)
 
         self.current_modes[mode_name] = mode_payload
-        save_modes(self.current_modes)
+        if not save_modes(self.current_modes):
+            self.set_feedback("Could not save to the database.", APP_THEME["danger"])
+            return
         self.editing_mode_name = mode_name
         self.mode_title_label.configure(text=f"Editing: {mode_name}")
         self.render_mode_list()
@@ -573,7 +595,9 @@ class ConfigWindow(ctk.CTkToplevel):
             return
 
         self.current_modes.pop(mode_name, None)
-        save_modes(self.current_modes)
+        if not save_modes(self.current_modes):
+            self.set_feedback("Could not save to the database.", APP_THEME["danger"])
+            return
 
         if self.editing_mode_name == mode_name:
             self.reset_form()
@@ -583,6 +607,74 @@ class ConfigWindow(ctk.CTkToplevel):
 
         if self.on_modes_changed:
             self.on_modes_changed(dict(self.current_modes), f"Deleted mode {mode_name}.")
+
+    def export_modes(self):
+        file_path = filedialog.asksaveasfilename(
+            parent=self,
+            title="Export AutoH modes",
+            defaultextension=".json",
+            initialfile="autoh-modes.json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+        )
+        if not file_path:
+            return
+        try:
+            export_config(file_path)
+        except OSError as exc:
+            self.set_feedback(f"Export failed: {exc}", APP_THEME["danger"])
+            return
+        self.set_feedback(
+            f"Exported {len(self.current_modes)} mode(s) to {file_path}.", APP_THEME["success"]
+        )
+
+    def import_modes(self):
+        file_path = filedialog.askopenfilename(
+            parent=self,
+            title="Import AutoH modes",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+        )
+        if not file_path:
+            return
+        try:
+            imported = read_import_file(file_path)
+        except (OSError, ValueError) as exc:
+            self.set_feedback(f"Import failed: {exc}", APP_THEME["danger"])
+            return
+        if not imported:
+            self.set_feedback("Import file contains no modes.", APP_THEME["warning"])
+            return
+
+        choice = messagebox.askyesnocancel(
+            "Import modes",
+            f"Found {len(imported)} mode(s).\n\n"
+            "Yes = replace ALL current modes\n"
+            "No = merge (modes with the same name are overwritten)\n"
+            "Cancel = do nothing",
+            parent=self,
+        )
+        if choice is None:
+            return
+        merged = dict(imported) if choice else {**self.current_modes, **imported}
+
+        used_hotkeys = set()
+        for name, settings in merged.items():
+            result = validate_mode_form(name, settings["hotkey"], used_hotkeys)
+            if not result.ok:
+                self.set_feedback(f"Import failed in mode '{name}': {result.message}", APP_THEME["danger"])
+                return
+            used_hotkeys.add(settings["hotkey"])
+
+        if not save_modes(merged):
+            self.set_feedback("Import failed: could not save to the database.", APP_THEME["danger"])
+            return
+
+        self.current_modes = merged
+        self.reset_form()
+        self.render_mode_list()
+        message = f"Imported {len(imported)} mode(s)."
+        self.set_feedback(message, APP_THEME["success"])
+        if self.on_modes_changed:
+            self.on_modes_changed(dict(self.current_modes), message)
 
     def _resolve_saved_apps(self, saved_apps):
         resolved = []
