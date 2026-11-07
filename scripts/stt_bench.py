@@ -1,17 +1,16 @@
-"""M1 spike: record test sentences, then benchmark Whisper models on them.
+"""Speech-to-text benchmark: record test sentences, then score models on them.
 
 Measures what matters for AutoH: did the spoken sentence end up as the right
 action? (not word error rate). See docs/plans/v2.0-voice-commands.md, M1.
 
     venv\\Scripts\\python.exe scripts\\stt_bench.py record              # read 20 sentences aloud
-    venv\\Scripts\\python.exe scripts\\stt_bench.py bench               # base + small
-    venv\\Scripts\\python.exe scripts\\stt_bench.py bench --models tiny,base,small,medium
-    venv\\Scripts\\python.exe scripts\\stt_bench.py bench --no-prompt   # without app-name hint
-    venv\\Scripts\\python.exe scripts\\stt_bench.py bench --models typhoon       # offline, models/typhoon-asr-realtime
+    venv\\Scripts\\python.exe scripts\\stt_bench.py record --only 3,7   # re-record some
+    venv\\Scripts\\python.exe scripts\\stt_bench.py bench               # typhoon (offline, default)
     $env:TYPHOON_API_KEY="..."; venv\\Scripts\\python.exe scripts\\stt_bench.py bench --models typhoon-api
 
-Whisper models download from Hugging Face on first use (base ~150 MB, small ~500 MB).
 "typhoon" needs the ONNX files in models/typhoon-asr-realtime/ (see SOURCE.txt there).
+Whisper (tiny/base/small/large-v3-turbo; --no-prompt) was dropped after M1 and is
+no longer installed: pip install faster-whisper to compare again.
 Recordings are saved to bench/audio/ (git-ignored); delete them any time.
 """
 import argparse
@@ -215,7 +214,10 @@ def cmd_bench(models, use_prompt):
         elif model_name == "typhoon":
             model = TyphoonLocal()
         else:
-            from faster_whisper import WhisperModel
+            try:
+                from faster_whisper import WhisperModel
+            except ImportError:
+                sys.exit(f"{model_name}: Whisper needs: pip install faster-whisper")
 
             model = WhisperModel(model_name, device="cpu", compute_type="int8")
         load_s = time.perf_counter() - t0
@@ -257,7 +259,7 @@ def main():
     rec = sub.add_parser("record")
     rec.add_argument("--only", help="re-record these numbers, e.g. 3,7")
     bench = sub.add_parser("bench")
-    bench.add_argument("--models", default="base,small",
+    bench.add_argument("--models", default="typhoon",
                        help="comma list: tiny,base,small,medium,large-v3 or a CTranslate2 model path/repo")
     bench.add_argument("--no-prompt", action="store_true", help="disable app-name initial_prompt")
     opts = parser.parse_args()
