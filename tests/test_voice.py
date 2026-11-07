@@ -11,7 +11,9 @@ from config import database  # noqa: E402
 from voice import intents  # noqa: E402
 from voice.actions import Action, ActionContext, tool_definitions  # noqa: E402
 from voice.matching import normalize  # noqa: E402
-from voice.pipeline import execute, history_record, interpret, interpret_detail, learn_alias  # noqa: E402
+from voice.pipeline import (  # noqa: E402
+    apply_pick, execute, history_record, interpret, interpret_detail, learn_alias, picker_options,
+)
 from voice.validate import Rejected, resolve, suggest  # noqa: E402
 
 
@@ -29,6 +31,7 @@ def make_ctx(**overrides):
         open_app=lambda path, name: opened.append(name),
         open_url=urls.append,
         run_mode=modes_run.append,
+        open_path=urls.append,
     )
     for key, value in overrides.items():
         setattr(ctx, key, value)
@@ -245,6 +248,10 @@ class ValidateGuardTest(unittest.TestCase):
             Action("open_app", {}),
             Action("web_search", {"query": "x" * 500}),
             Action("open_app", "LINE"),
+            Action("open_folder", {"name": r"C:\Windows\System32"}),
+            Action("open_folder", {"name": "Downloads", "path": r"C:\Windows"}),
+            Action("open_settings", {"page": "ms-settings:anything"}),
+            Action("open_settings", {"page": "network", "uri": "file:///C:/evil.exe"}),
         ]
         for action in bad:
             with self.subTest(action=action):
@@ -253,7 +260,68 @@ class ValidateGuardTest(unittest.TestCase):
 
     def test_tool_definitions(self):
         names = {t["name"] for t in tool_definitions()}
-        self.assertEqual(names, {"open_app", "open_url", "web_search", "run_mode"})
+        self.assertEqual(names, {"open_app", "open_url", "web_search", "run_mode",
+                                 "play_music", "open_folder", "open_settings"})
+
+
+class MoreActionsTest(unittest.TestCase):
+    """play_music (YouTube), open_folder (known folders), open_settings (whitelist)."""
+
+    def setUp(self):
+        self.ctx, self.opened, self.urls, _ = make_ctx()
+
+    def run_text(self, text):
+        resolved, errors = interpret(text, self.ctx)
+        self.assertEqual(errors, [], text)
+        execute(resolved, self.ctx, confirm=lambda q: True)
+        return resolved[0]
+
+    def test_music_goes_to_youtube_search(self):
+        for text, query in [("เปิดเพลงซิลิฟูให้หน่อย", "ซิลิฟู"), ("เล่นเพลง lofi", "lofi"),
+                            ("ฟังเพลงบอดี้สแลม", "บอดี้สแลม"), ("play shape of you", "shape of you")]:
+            with self.subTest(text=text):
+                item = self.run_text(text)
+                self.assertEqual((item.action.name, item.action.args["query"]), ("play_music", query))
+        self.assertTrue(all(u.startswith("https://www.youtube.com/results?search_query=") for u in self.urls))
+
+    def test_known_folders_only(self):
+        item = self.run_text("เปิดโฟลเดอร์ดาวน์โหลด")
+        self.assertEqual(item.action.args["name"], "Downloads")
+        self.assertTrue(os.path.isabs(self.urls[-1]))
+        self.assertEqual(self.run_text("open folder documents").action.args["name"], "Documents")
+        self.assertEqual(interpret("เปิดโฟลเดอร์ระบบลับ", self.ctx)[0], [])
+
+    def test_settings_whitelist(self):
+        for text, uri in [("เปิดตั้งค่าไวไฟ", "ms-settings:network-wifi"),
+                          ("ตั้งค่าบลูทูธ", "ms-settings:bluetooth"),
+                          ("เปิดการตั้งค่าเสียง", "ms-settings:sound"),
+                          ("เปิดตั้งค่า", "ms-settings:")]:
+            with self.subTest(text=text):
+                self.run_text(text)
+                self.assertEqual(self.urls[-1], uri)
+
+    def test_existing_commands_unchanged(self):
+        self.assertEqual(self.run_text("เปิดไลน์").action.name, "open_app")
+        self.assertEqual(self.run_text("เข้าโหมด work").action.name, "run_mode")
+        self.assertEqual(self.run_text("ค้นหาเพลงใหม่").action.name, "web_search")
+
+    def test_picker_fallbacks(self):
+        options = picker_options("ซิลิฟู", self.ctx)
+        self.assertEqual([o[0] for o in options[-2:]], ["web_search", "play_music"])
+
+        resolved, rejected = apply_pick(("play_music", "ซิลิฟู"), "ซิลิฟู", "เปิดซิลิฟู", self.ctx)
+        self.assertEqual((resolved[0].action.name, rejected), ("play_music", []))
+        self.assertNotIn("ซิลิฟู", self.ctx.aliases)             # fallbacks are never learned
+
+        resolved, _ = apply_pick(("web_search", "ซิลิฟู"), "ซิลิฟู", "เปิดซิลิฟู", self.ctx)
+        self.assertEqual(resolved[0].action.name, "web_search")
+
+        resolved, _ = apply_pick(("app", "LINE"), "ร้าย", "เปิดร้าย", self.ctx)
+        self.assertEqual(resolved[0].action.args["name"], "LINE")
+        self.assertIn("ร้าย", self.ctx.aliases)
+
+        resolved, rejected = apply_pick(None, "ร้ายๆ", "เปิดร้ายๆ", self.ctx)
+        self.assertEqual((resolved, rejected[0].term), ([], "ร้ายๆ"))
 
 
 class ExecuteTest(unittest.TestCase):

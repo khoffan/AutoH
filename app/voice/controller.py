@@ -15,10 +15,9 @@ from config import database
 from core.logger import write_log
 from voice import app_index
 from voice.actions import ActionContext
-from voice.pipeline import execute, history_record, interpret_detail, learn_alias
+from voice.pipeline import apply_pick, execute, history_record, interpret_detail, picker_options
 from voice.recorder import PushToTalkRecorder, RecorderError
 from voice.transcriber import Transcriber, TranscriberUnavailable
-from voice.validate import suggest
 
 DEFAULT_HOTKEY = "ctrl+alt+v"
 MIN_AUDIO_SECONDS = 0.3
@@ -130,11 +129,11 @@ class VoiceAssistant:
             self.ui.show(f"ได้ยิน: \"{text}\"", None)
             resolved, rejected = interpret_detail(text, self.ctx)
 
-            for exc in rejected:   # unknown name: let the user pick, learn, retry once
+            for exc in rejected:   # unknown name: pick a target or search/play it, once
                 if exc.term:
-                    choice = self.ui.pick(exc.term, suggest(exc.term, self.ctx))
-                    if choice and learn_alias(exc.term, choice[0], choice[1], self.ctx, _save_alias):
-                        resolved, rejected = interpret_detail(text, self.ctx)
+                    choice = self.ui.pick(exc.term, picker_options(exc.term, self.ctx))
+                    if choice:
+                        resolved, rejected = apply_pick(choice, exc.term, text, self.ctx, _save_alias)
                     break
 
             results = execute(resolved, self.ctx, self.ui.confirm, save_alias=_save_alias)

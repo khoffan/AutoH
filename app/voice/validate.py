@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from voice.actions import REGISTRY, Action, ActionContext, ActionSpec, Risk
+from voice.actions import (
+    FOLDERS, REGISTRY, SETTINGS, Action, ActionContext, ActionSpec, Risk, known_folder_path,
+)
 from voice.matching import best_match
 
 AUTO_THRESHOLD = 0.85   # at or above: run without asking (SAFE actions)
@@ -66,12 +68,35 @@ def resolve(action: Action, ctx: ActionContext) -> Resolved:
     elif spec.name == "open_app":
         # "เปิด X" may also mean a site or a mode; pick the best match, apps win ties.
         resolved = _resolve_target(args["name"], ctx, kinds=("app", "site", "mode"))
+    elif spec.name == "play_music":
+        resolved = Resolved(Action("play_music", {"query": args["query"]}), spec, 1.0,
+                            f"เล่น \"{args['query']}\" บน YouTube")
+    elif spec.name == "open_folder":
+        key, s = _match_fixed(args["name"], FOLDERS, "โฟลเดอร์")
+        folder = FOLDERS[key]
+        resolved = Resolved(Action("open_folder", {"name": folder, "path": known_folder_path(folder)}),
+                            spec, s, f"เปิดโฟลเดอร์ {folder}")
+    elif spec.name == "open_settings":
+        key, s = _match_fixed(args["page"], SETTINGS, "หน้าตั้งค่า")
+        resolved = Resolved(Action("open_settings", {"page": key, "uri": SETTINGS[key]}),
+                            spec, s, f"เปิดตั้งค่า {key}")
     else:
         raise Rejected(f"No resolver for action: {spec.name}")
 
     # A guessed verb lowers trust in the whole command.
     resolved.score = min(resolved.score, action.confidence)
     return resolved
+
+
+FIXED_MIN = 0.75   # folder/settings names are short and few: weak guesses are noise
+
+
+def _match_fixed(term: str, table: dict, what: str) -> tuple[str, float]:
+    """Match against a fixed whitelist (folders, settings pages)."""
+    key, s = best_match(term, table)
+    if key is None or s < FIXED_MIN:
+        raise Rejected(f"ไม่รู้จัก{what} \"{term}\"")
+    return key, s
 
 
 def suggest(term: str, ctx: ActionContext, limit: int = 5, minimum: float = 0.3):

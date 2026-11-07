@@ -324,6 +324,10 @@ def write_alias(conn: sqlite3.Connection, alias: str, target: str, kind: str) ->
     )
 
 
+def delete_alias(conn: sqlite3.Connection, alias: str) -> bool:
+    return conn.execute("DELETE FROM aliases WHERE alias = ?", (alias,)).rowcount > 0
+
+
 def read_app_index(conn: sqlite3.Connection) -> dict:
     """{name: path}"""
     return dict(conn.execute("SELECT name, path FROM app_index ORDER BY name"))

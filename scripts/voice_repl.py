@@ -18,8 +18,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app"))
 
 from voice.actions import ActionContext  # noqa: E402
-from voice.pipeline import execute, interpret_detail, learn_alias  # noqa: E402
-from voice.validate import suggest  # noqa: E402
+from voice.pipeline import apply_pick, execute, interpret_detail, picker_options  # noqa: E402
 
 
 def build_context(use_db: bool, dry_run: bool) -> ActionContext:
@@ -45,6 +44,7 @@ def build_context(use_db: bool, dry_run: bool) -> ActionContext:
     if dry_run:
         ctx.open_app = lambda path, name: print(f"   [dry-run] open app {name}: {path}")
         ctx.open_url = lambda url: print(f"   [dry-run] open url {url}")
+        ctx.open_path = lambda target: print(f"   [dry-run] open {target}")
     return ctx
 
 
@@ -65,17 +65,22 @@ def alias_saver(use_db: bool):
     return save
 
 
-def pick_and_learn(term: str, ctx: ActionContext, save) -> None:
-    options = suggest(term, ctx)
-    if not options:
-        return
-    print(f"   หมายถึงอันไหน? (Enter = ไม่ใช่ทั้งหมด)")
+def pick(term: str, ctx: ActionContext):
+    """Same choices as the app's pick dialog. Returns (kind, name) or None."""
+    options = picker_options(term, ctx)
+    print("   หมายถึงอันไหน? (Enter = ไม่ใช่ทั้งหมด)")
     for n, (kind, name, s) in enumerate(options, 1):
-        print(f"     {n}. {name} [{kind}] {s:.2f}")
+        if kind == "web_search":
+            print(f"     {n}. ค้นหา \"{name}\" ใน Google")
+        elif kind == "play_music":
+            print(f"     {n}. เล่น \"{name}\" บน YouTube")
+        else:
+            print(f"     {n}. {name} [{kind}] {s:.2f}")
     choice = input("   เลือก: ").strip()
     if choice.isdigit() and 1 <= int(choice) <= len(options):
         kind, name, _ = options[int(choice) - 1]
-        learn_alias(term, kind, name, ctx, save)
+        return kind, name
+    return None
 
 
 def main():
@@ -129,7 +134,8 @@ def main():
         for exc in rejected:
             print(f"   x {exc}")
             if exc.term:
-                pick_and_learn(exc.term, ctx, save)
+                resolved, rejected = apply_pick(pick(exc.term, ctx), exc.term, text, ctx, save)
+                break
         for item in resolved:
             print(f"   -> {item.label} (score {item.score:.2f}"
                   f"{', ต้องยืนยัน' if item.needs_confirm else ''})")

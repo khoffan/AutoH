@@ -23,6 +23,10 @@ _MODE = r"โหมด|mode"
 # Order matters: more specific prefixes first.
 _RULES: list[tuple[re.Pattern, str, str]] = [
     (re.compile(rf"^(?:เข้า|{_OPEN}|ใช้)?\s*(?:{_MODE})\s*(.+)$"), "run_mode", "name"),
+    (re.compile(rf"^(?:{_OPEN}|ไปที่)?\s*(?:การตั้งค่า|ตั้งค่า|settings?)\s*(.*)$"), "open_settings", "page"),
+    (re.compile(rf"^(?:{_OPEN}|เล่น|ฟัง)\s*(?:เพลง|music|song)\s*(.+)$"), "play_music", "query"),
+    (re.compile(r"^play\s+(?:music\s+|song\s+)?(.+)$"), "play_music", "query"),
+    (re.compile(rf"^(?:{_OPEN})\s*(?:โฟลเดอร์|โฟลเดอ|แฟ้ม|folder)\s*(.+)$"), "open_folder", "name"),
     (re.compile(rf"^(?:{_SEARCH})\s*(.+)$"), "web_search", "query"),
     (re.compile(rf"^(?:(?:{_OPEN})\s*(?:เว็บไซต์|เว็บ|website)|ไปที่เว็บ|ไปที่|go to)\s*(.+)$"),
      "open_url", "site"),
@@ -48,8 +52,13 @@ def parse(text: str) -> list[Action]:
         return []
     for pattern, action_name, arg in _RULES:
         match = pattern.match(cleaned)
-        if match and match.group(1).strip():
-            return [Action(action_name, {arg: match.group(1).strip()})]
+        if not match:
+            continue
+        value = match.group(1).strip()
+        if not value and action_name == "open_settings":
+            value = "home"                      # "เปิดตั้งค่า" alone -> Settings home
+        if value:
+            return [Action(action_name, {arg: value})]
     return _parse_fuzzy_verb(cleaned)
 
 

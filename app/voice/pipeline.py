@@ -43,6 +43,35 @@ def interpret(text: str, ctx: ActionContext) -> tuple[list[Resolved], list[str]]
     return resolved, [str(exc) for exc in rejected]
 
 
+FALLBACK_KINDS = ("web_search", "play_music")   # picker extras: run once, never learned
+
+
+def picker_options(term: str, ctx: ActionContext) -> list[tuple[str, str, float]]:
+    """Closest known targets, then "search it" / "play it" so any phrase has a way out."""
+    from voice.validate import suggest
+
+    return suggest(term, ctx, limit=4) + [(kind, term, 0.0) for kind in FALLBACK_KINDS]
+
+
+def apply_pick(choice: tuple[str, str] | None, term: str, text: str, ctx: ActionContext,
+               save: SaveAlias | None = None) -> tuple[list[Resolved], list[Rejected]]:
+    """Turn a picker choice into runnable actions.
+
+    Known target -> learn alias, re-interpret the whole sentence.
+    Fallback (search / music) -> run that action on the spoken term, nothing learned.
+    """
+    if not choice:
+        return [], [Rejected(f"ไม่พบ \"{term}\"", term=term)]
+    kind, name = choice
+    if kind in FALLBACK_KINDS:
+        from voice.actions import Action
+
+        return [resolve(Action(kind, {"query": name}), ctx)], []
+    if learn_alias(term, kind, name, ctx, save):
+        return interpret_detail(text, ctx)
+    return [], [Rejected(f"ไม่พบ \"{term}\"", term=term)]
+
+
 def history_record(resolved: list[Resolved], results: list[tuple[Resolved, str]] | None,
                    source: str = "rule") -> tuple[str, list[dict], str]:
     """(source, actions, result) for database.add_history()."""

@@ -109,8 +109,11 @@ def ask_pick(master, heard: str, options: list[tuple[str, str, float]],
                  font=ctk.CTkFont(size=15, weight="bold"), text_color=APP_THEME["text"]
                  ).pack(padx=16, pady=(16, 8))
     labels = {"app": "โปรแกรม", "site": "เว็บ", "mode": "โหมด"}
+    fallbacks = {"web_search": "🔎 ค้นหา \"{}\" ใน Google", "play_music": "▶ เล่น \"{}\" บน YouTube"}
     for n, (kind, name, _score) in enumerate(options, 1):
-        ctk.CTkButton(dialog, text=f"{n}. {name}  ({labels.get(kind, kind)})", anchor="w",
+        text = (f"{n}. " + fallbacks[kind].format(name)) if kind in fallbacks \
+            else f"{n}. {name}  ({labels.get(kind, kind)})"
+        ctk.CTkButton(dialog, text=text, anchor="w",
                       command=lambda k=kind, v=name: dialog.choose((k, v)),
                       fg_color=APP_THEME["surface_alt"], text_color=APP_THEME["text"],
                       hover_color=APP_THEME["selection"]).pack(fill="x", padx=16, pady=3)
