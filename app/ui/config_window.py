@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
-from config.load_config import export_config, load_config, read_import_file, save_modes
+from config.load_config import export_config, load_config, read_import_bundle, save_modes, save_voice
 from system.normalize import normalize_apps
 from system.registry import get_apps_from_registry
 from system.start_menus import get_apps_from_start_menu
@@ -20,9 +20,12 @@ def configure_customtkinter():
 class ConfigWindow(ctk.CTkToplevel):
     HOTKEY_PREFIX = "ctrl+alt+"
 
-    def __init__(self, master, on_modes_changed=None, on_close=None, startup=False):
+    def __init__(self, master, on_modes_changed=None, on_close=None, startup=False,
+                 on_open_voice=None, on_voice_imported=None):
         super().__init__(master, fg_color=APP_THEME["window_bg"])
         self.on_modes_changed = on_modes_changed
+        self.on_open_voice = on_open_voice
+        self.on_voice_imported = on_voice_imported
         self.on_close_callback = on_close
         self.startup = startup
         self.all_apps = normalize_apps(get_apps_from_registry(), get_apps_from_start_menu())
@@ -74,6 +77,17 @@ class ConfigWindow(ctk.CTkToplevel):
             font=ctk.CTkFont(size=26, weight="bold"),
             text_color=APP_THEME["text"],
         ).grid(row=0, column=0, sticky="w")
+
+        if self.on_open_voice is not None:
+            ctk.CTkButton(
+                header,
+                text="🎙 Voice Settings",
+                command=self.on_open_voice,
+                fg_color=APP_THEME["accent"],
+                hover_color=APP_THEME["accent_hover"],
+                text_color=APP_THEME["primary_text"],
+                height=36,
+            ).grid(row=0, column=1, rowspan=2, sticky="e")
 
         ctk.CTkLabel(
             header,
@@ -636,12 +650,16 @@ class ConfigWindow(ctk.CTkToplevel):
         if not file_path:
             return
         try:
-            imported = read_import_file(file_path)
+            imported, voice = read_import_bundle(file_path)
         except (OSError, ValueError) as exc:
             self.set_feedback(f"Import failed: {exc}", APP_THEME["danger"])
             return
-        if not imported:
+        has_voice = bool(voice["aliases"] or voice["settings"])
+        if not imported and not has_voice:
             self.set_feedback("Import file contains no modes.", APP_THEME["warning"])
+            return
+        if not imported:
+            self._import_voice(voice, "Imported voice settings only (no modes in file).")
             return
 
         choice = messagebox.askyesnocancel(
@@ -675,6 +693,20 @@ class ConfigWindow(ctk.CTkToplevel):
         self.set_feedback(message, APP_THEME["success"])
         if self.on_modes_changed:
             self.on_modes_changed(dict(self.current_modes), message)
+        if has_voice:
+            self._import_voice(voice, message)
+
+    def _import_voice(self, voice, message):
+        """Merge aliases + voice settings (same alias / key is overwritten)."""
+        if not save_voice(voice):
+            self.set_feedback(f"{message} Voice settings could not be saved.", APP_THEME["danger"])
+            return
+        self.set_feedback(
+            f"{message} + {len(voice['aliases'])} alias(es), {len(voice['settings'])} voice setting(s).",
+            APP_THEME["success"],
+        )
+        if self.on_voice_imported:
+            self.on_voice_imported()
 
     def _resolve_saved_apps(self, saved_apps):
         resolved = []
@@ -750,8 +782,10 @@ class ConfigWindow(ctk.CTkToplevel):
         return None
 
 
-def show_configuration_window(master, on_modes_changed=None, on_close=None, startup=False):
+def show_configuration_window(master, on_modes_changed=None, on_close=None, startup=False,
+                              on_open_voice=None, on_voice_imported=None):
     configure_customtkinter()
     return ConfigWindow(
-        master, on_modes_changed=on_modes_changed, on_close=on_close, startup=startup
+        master, on_modes_changed=on_modes_changed, on_close=on_close, startup=startup,
+        on_open_voice=on_open_voice, on_voice_imported=on_voice_imported,
     )

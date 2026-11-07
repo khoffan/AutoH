@@ -324,6 +324,52 @@ def write_alias(conn: sqlite3.Connection, alias: str, target: str, kind: str) ->
     )
 
 
+VOICE_SETTING_KEYS = ("voice_enabled", "voice_hotkey")   # only these travel in JSON files
+ALIAS_KINDS = ("app", "site", "mode")
+
+
+def normalize_voice(data) -> dict:
+    """Validate the optional "voice" block of an import file. Raises ValueError.
+
+    {"aliases": {alias: {"target": str, "kind": "app|site|mode"}}, "settings": {key: str}}
+    """
+    if data is None:
+        return {"aliases": {}, "settings": {}}
+    if not isinstance(data, dict):
+        raise ValueError('"voice" must be an object.')
+    aliases, settings = {}, {}
+    for alias, value in (data.get("aliases") or {}).items():
+        if not isinstance(value, dict):
+            raise ValueError(f"Alias '{alias}' must be an object with target and kind.")
+        target, kind = value.get("target"), value.get("kind")
+        if not str(alias).strip() or not isinstance(target, str) or not target.strip():
+            raise ValueError(f"Alias '{alias}' needs a target.")
+        if kind not in ALIAS_KINDS:
+            raise ValueError(f"Alias '{alias}': kind must be one of {', '.join(ALIAS_KINDS)}.")
+        aliases[str(alias).strip().lower()] = (target.strip(), kind)
+    for key, value in (data.get("settings") or {}).items():
+        if key not in VOICE_SETTING_KEYS:
+            raise ValueError(f"Unknown voice setting '{key}'.")
+        settings[key] = str(value).strip()
+    return {"aliases": aliases, "settings": settings}
+
+
+def read_voice(conn: sqlite3.Connection) -> dict:
+    """Voice block for export (same shape normalize_voice accepts)."""
+    return {
+        "aliases": {a: {"target": t, "kind": k} for a, (t, k) in sorted(read_aliases(conn).items())},
+        "settings": {k: v for k in VOICE_SETTING_KEYS if (v := get_setting(conn, k)) is not None},
+    }
+
+
+def write_voice(conn: sqlite3.Connection, voice: dict) -> None:
+    """Merge an imported voice block (aliases overwrite same alias; settings overwrite)."""
+    for alias, (target, kind) in voice["aliases"].items():
+        write_alias(conn, alias, target, kind)
+    for key, value in voice["settings"].items():
+        set_setting(conn, key, value)
+
+
 def delete_alias(conn: sqlite3.Connection, alias: str) -> bool:
     return conn.execute("DELETE FROM aliases WHERE alias = ?", (alias,)).rowcount > 0
 

@@ -3,12 +3,15 @@ from ui.config_window import configure_customtkinter, show_configuration_window
 from ui.theme import APP_THEME
 
 
-def get_user_configuration(master, on_modes_changed=None, on_close=None, startup=False):
+def get_user_configuration(master, on_modes_changed=None, on_close=None, startup=False,
+                           on_open_voice=None, on_voice_imported=None):
     return show_configuration_window(
         master,
         on_modes_changed=on_modes_changed,
         on_close=on_close,
         startup=startup,
+        on_open_voice=on_open_voice,
+        on_voice_imported=on_voice_imported,
     )
 
 

@@ -50,6 +50,25 @@ class VoiceAssistant:
         except sqlite3.Error:
             return DEFAULT_HOTKEY
 
+    @staticmethod
+    def enabled() -> bool:
+        try:
+            with database.connect() as conn:
+                return database.get_setting(conn, "voice_enabled", "1") != "0"
+        except sqlite3.Error:
+            return True
+
+    @staticmethod
+    def save_settings(enabled: bool, hotkey: str) -> bool:
+        try:
+            with database.connect() as conn:
+                database.set_setting(conn, "voice_enabled", "1" if enabled else "0")
+                database.set_setting(conn, "voice_hotkey", hotkey)
+            return True
+        except sqlite3.Error as exc:
+            print(f"Cannot save voice settings: {exc}")
+            return False
+
     def start(self) -> None:
         """Load the speech model in the background (~3s); reload() builds the context."""
         self.transcriber.warm_up()
@@ -68,6 +87,8 @@ class VoiceAssistant:
 
     @property
     def status(self) -> str:
+        if not self.enabled():
+            return "off (ปิดไว้ในหน้า Voice Settings)"
         if self.transcriber.error:
             return f"off ({self.transcriber.error})"
         return "ready"
@@ -151,6 +172,28 @@ class VoiceAssistant:
         except sqlite3.Error as exc:
             print(f"Cannot save command history: {exc}")
         write_log(f"Voice heard=\"{text}\" -> {result} {[a['name'] for a in actions]}", "VOICE")
+
+
+_MODIFIERS = {"ctrl", "alt", "shift", "windows", "win", "left windows", "right windows"}
+
+
+def validate_voice_hotkey(hotkey: str, taken: set[str]) -> str | None:
+    """Error message, or None if `hotkey` can be used for push-to-talk."""
+    import keyboard
+
+    hotkey = hotkey.strip().lower()
+    if not hotkey:
+        return "ใส่ปุ่มลัด เช่น ctrl+alt+v"
+    parts = [part.strip() for part in hotkey.split("+")]
+    if not any(part in _MODIFIERS for part in parts) or all(part in _MODIFIERS for part in parts):
+        return "ต้องมีปุ่ม ctrl/alt/shift/win อย่างน้อย 1 ปุ่ม และปุ่มปกติ 1 ปุ่ม"
+    try:
+        keyboard.parse_hotkey(hotkey)
+    except ValueError as exc:
+        return f"ปุ่มลัดไม่ถูกต้อง: {exc}"
+    if hotkey in {t.lower() for t in taken}:
+        return f"{hotkey} ถูกใช้แล้ว (ระบบหรือ mode อื่น)"
+    return None
 
 
 def _save_alias(alias: str, target: str, kind: str) -> None:

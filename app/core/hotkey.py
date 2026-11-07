@@ -18,6 +18,7 @@ from voice.controller import VoiceAssistant, VoiceUI
 
 DEBOUNCE_SECOND = 2
 VOICE_KEY_POLL_MS = 50
+STATIC_HOTKEYS = ("ctrl+alt+s", "ctrl+alt+q", "ctrl+alt+p", "ctrl+alt+e", "ctrl+alt+i")
 
 
 @dataclass
@@ -42,6 +43,8 @@ class AutoHController(ctk.CTk):
         self.task_queue = queue.Queue()
         self.config_window = None
         self.status_window = None
+        self.voice_settings_window = None
+        self.voice_hotkey_id = None
         self.mode_hotkey_ids = []
         self.modes = {}
         self.toast = None
@@ -52,7 +55,7 @@ class AutoHController(ctk.CTk):
             pick=lambda heard, options: ask_pick(self, heard, options) if options else None,
             run_mode=self.voice_run_mode,
         ))
-        self.voice_hotkey = VoiceAssistant.hotkey()
+        self.voice_hotkey = ""          # set by register_voice_hotkey()
 
         self.protocol("WM_DELETE_WINDOW", self.stop_system)
         self.reload_modes()
@@ -127,6 +130,59 @@ class AutoHController(ctk.CTk):
             raise RuntimeError("ระบบไม่พร้อม")
         self.launch_apps_mode(mode_name)
 
+    def register_voice_hotkey(self):
+        """(Re)register push-to-talk from settings; none when voice is disabled."""
+        if self.voice_hotkey_id is not None:
+            try:
+                keyboard.remove_hotkey(self.voice_hotkey_id)
+            except (KeyError, ValueError):
+                pass
+            self.voice_hotkey_id = None
+        self.voice_hotkey = VoiceAssistant.hotkey() if VoiceAssistant.enabled() else ""
+        if not self.voice_hotkey:
+            return
+        try:
+            self.voice_hotkey_id = keyboard.add_hotkey(
+                self.voice_hotkey, lambda: self.request_task(self.voice_press)
+            )
+        except ValueError as exc:
+            write_log(f"Invalid voice hotkey '{self.voice_hotkey}': {exc}", "WARN")
+            self.voice_hotkey = ""
+
+    def open_voice_settings(self):
+        from ui.voice_settings import VoiceSettingsHost, show_voice_settings
+        from voice import app_index
+        from voice.actions import SITES
+
+        def targets(kind):
+            if kind == "app":
+                return list(self.voice.ctx.apps)
+            if kind == "site":
+                return list(SITES)
+            return list(self.modes)
+
+        def rescan():
+            apps = app_index.refresh(self.modes)
+            self.voice.reload(self.modes)
+            write_log(f"Voice app index rescanned: {len(apps)} apps")
+            return len(self.voice.ctx.apps)
+
+        def on_settings_saved():
+            self.register_voice_hotkey()
+            write_log(f"Voice settings saved: enabled={VoiceAssistant.enabled()} hotkey={self.voice_hotkey}")
+
+        host = VoiceSettingsHost(
+            voice_status=lambda: self.voice.status,
+            taken_hotkeys=lambda: set(STATIC_HOTKEYS) | {
+                s.get("hotkey", "") for s in self.modes.values() if s.get("hotkey")
+            },
+            targets=targets,
+            on_settings_saved=on_settings_saved,
+            on_aliases_changed=lambda: self.voice.reload(self.modes),
+            rescan_apps=rescan,
+        )
+        self.voice_settings_window = show_voice_settings(self, host, self.voice_settings_window)
+
     def register_static_hotkeys(self):
         keyboard.add_hotkey("ctrl+alt+s", lambda: self.request_task(self.start_system))
         keyboard.add_hotkey("ctrl+alt+q", lambda: self.request_task(self.stop_system))
@@ -135,11 +191,7 @@ class AutoHController(ctk.CTk):
         keyboard.add_hotkey(
             "ctrl+alt+i", lambda: self.request_task(self.show_status_ui, "System state overview")
         )
-        try:
-            keyboard.add_hotkey(self.voice_hotkey, lambda: self.request_task(self.voice_press))
-        except ValueError as exc:
-            write_log(f"Invalid voice hotkey '{self.voice_hotkey}': {exc}", "WARN")
-            self.voice_hotkey = ""
+        self.register_voice_hotkey()
 
     def register_mode_hotkeys(self):
         for hotkey_id in self.mode_hotkey_ids:
@@ -173,7 +225,7 @@ class AutoHController(ctk.CTk):
             already_opened=self.runtime.already_opened,
             modes=self.modes,
             voice=self.voice.status,
-            voice_hotkey=self.voice_hotkey if not self.voice.transcriber.error else "",
+            voice_hotkey=self.voice_hotkey if self.voice.status == "ready" else "",
         )
 
     def show_status_ui(self, message="System state overview"):
@@ -194,7 +246,13 @@ class AutoHController(ctk.CTk):
             on_modes_changed=self.on_modes_changed,
             on_close=lambda has_modes: self.on_config_close(has_modes, startup),
             startup=startup,
+            on_open_voice=self.open_voice_settings,
+            on_voice_imported=self.on_voice_imported,
         )
+
+    def on_voice_imported(self):
+        self.register_voice_hotkey()
+        self.voice.reload(self.modes)
 
     def on_modes_changed(self, modes, message):
         self.modes = modes
@@ -246,7 +304,7 @@ class AutoHController(ctk.CTk):
 
         if self.voice.recorder.is_recording:
             self.voice.recorder.stop()
-        for window in (self.config_window, self.status_window, self.toast):
+        for window in (self.config_window, self.status_window, self.toast, self.voice_settings_window):
             if window is not None and window.winfo_exists():
                 window.destroy()
 

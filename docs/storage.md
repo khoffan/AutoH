@@ -28,25 +28,36 @@
 
 ในหน้า Mode Manager มีปุ่มใต้รายการ mode:
 
-- **Export JSON** บันทึก mode ทั้งหมดเป็นไฟล์ JSON รูปแบบเดียวกับ `config.json` เดิม
+- **Export JSON** บันทึก mode ทั้งหมด + ข้อมูลเสียง (alias และการตั้งค่าเสียง) เป็นไฟล์ JSON
 - **Import JSON** นำเข้าไฟล์ JSON
   - ตรวจก่อนบันทึกเสมอ: format JSON, ทุก mode ต้องมี hotkey, apps ต้องเป็นชื่อ → path, hotkey ต้องใช้ได้จริง ไม่ซ้ำ และไม่ใช่ hotkey ที่ระบบสงวนไว้
   - ถ้าไม่ผ่าน จะแจ้งว่าผิดที่ mode ไหน และข้อมูลเดิมไม่ถูกแก้
   - เลือกได้ว่า **แทนที่ทั้งหมด** หรือ **รวม** กับของเดิม (mode ชื่อซ้ำจะถูกทับ)
+  - ส่วน `voice` (ถ้ามี) จะ **รวม** เสมอ: alias หรือ setting ที่ชื่อซ้ำจะถูกทับ, alias อื่นที่มีอยู่ไม่ถูกลบ
+  - ไฟล์จากเวอร์ชันเก่าที่มีแค่ `modes` ยัง import ได้ตามปกติ
 
-รูปแบบไฟล์:
+รูปแบบไฟล์ (`voice` ไม่บังคับ):
 
 ```json
 {
     "modes": {
         "work": {
             "hotkey": "ctrl+alt+t",
-            "apps": { "LINE": "C:\path\to\LineLauncher.exe" },
+            "apps": { "LINE": "C:\\path\\to\\LineLauncher.exe" },
             "urls": "https://a.com, https://b.com"
         }
+    },
+    "voice": {
+        "aliases": {
+            "ไลน์": { "target": "line", "kind": "app" },
+            "ยูทูบ": { "target": "youtube", "kind": "site" }
+        },
+        "settings": { "voice_enabled": "1", "voice_hotkey": "ctrl+alt+v" }
     }
 }
 ```
+
+`kind` ต้องเป็น `app`, `site` หรือ `mode` และ `settings` รับเฉพาะ `voice_enabled` กับ `voice_hotkey`
 
 ## Schema
 
@@ -55,7 +66,13 @@
 | `modes` | `name`, `hotkey`, `urls` |
 | `mode_apps` | app ของแต่ละ mode (`mode_name`, `position`, `app_name`, `path`) เก็บลำดับตามที่เลือก |
 | `logs` | `ts`, `level`, `message` ลบรายการที่เก่ากว่า 30 วันทุกครั้งที่เปิดโปรแกรม |
-| `meta` | `schema_version`, สถานะการย้ายข้อมูล |
+| `meta` | `schema_version` (ปัจจุบัน 2), สถานะการย้ายข้อมูล |
+| `app_index` | รายชื่อโปรแกรมในเครื่องสำหรับสั่งด้วยเสียง (`name`, `path`, `source`) สแกนใหม่ได้ใน Voice Settings |
+| `aliases` | คำที่พูด → เป้าหมาย (`alias`, `target`, `kind`) มีค่าเริ่มต้น 17 คำ + คำที่เรียนรู้จากการใช้งาน |
+| `settings` | การตั้งค่า key/value เช่น `voice_enabled`, `voice_hotkey` |
+| `command_history` | ประวัติคำสั่งเสียง (`heard`, `source`, `actions`, `result`) ลบหลัง 30 วันเหมือน `logs` |
+
+DB เวอร์ชัน 1 จะอัปเกรดเป็น 2 เองตอนเปิดโปรแกรม (สร้างตารางใหม่ + ใส่ alias เริ่มต้น)
 
 เปิด WAL mode ไว้ ให้ process ของ hotkey กับ UI อ่านและเขียนพร้อมกันได้
 

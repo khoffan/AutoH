@@ -61,20 +61,44 @@ def delete_mode(mode_name):
 
 
 def export_config(file_path):
-    """Write current modes to a JSON file. Raises OSError on failure."""
+    """Write modes + voice (aliases, voice settings) to a JSON file. Raises OSError on failure."""
     data = load_config()
+    try:
+        with database.connect() as conn:
+            data["voice"] = database.read_voice(conn)
+    except sqlite3.Error as exc:
+        print(f"Cannot export voice settings: {exc}")
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
-def read_import_file(file_path):
-    """Read and validate a JSON config file. Returns modes dict.
+def read_import_bundle(file_path):
+    """Read and validate a JSON config file -> (modes, voice). Nothing is saved.
 
-    Raises ValueError (bad content) or OSError (cannot read). Nothing is saved.
+    `voice` is {"aliases": {...}, "settings": {...}}, empty for files from older
+    versions that only contain "modes". Raises ValueError or OSError.
     """
     with open(file_path, "r", encoding="utf-8-sig") as f:
         try:
             data = json.load(f)
         except json.JSONDecodeError as exc:
             raise ValueError(f"Not valid JSON (line {exc.lineno}): {exc.msg}") from exc
-    return database.normalize_modes(data)
+    modes = database.normalize_modes(data)
+    voice = database.normalize_voice(data.get("voice"))
+    return modes, voice
+
+
+def read_import_file(file_path):
+    """Modes only (kept for callers that ignore voice)."""
+    return read_import_bundle(file_path)[0]
+
+
+def save_voice(voice):
+    """Merge an imported voice block. Returns True on success."""
+    try:
+        with database.connect() as conn:
+            database.write_voice(conn, voice)
+        return True
+    except sqlite3.Error as exc:
+        print(f"Cannot save voice settings: {exc}")
+        return False
