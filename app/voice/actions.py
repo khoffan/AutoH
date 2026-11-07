@@ -22,6 +22,7 @@ class Risk(str, Enum):
 class Action:
     name: str
     args: dict = field(default_factory=dict)
+    confidence: float = 1.0   # < 1.0 when the verb itself was guessed (fuzzy), see intents
 
 
 @dataclass

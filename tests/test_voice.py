@@ -11,8 +11,8 @@ from config import database  # noqa: E402
 from voice import intents  # noqa: E402
 from voice.actions import Action, ActionContext, tool_definitions  # noqa: E402
 from voice.matching import normalize  # noqa: E402
-from voice.pipeline import execute, interpret  # noqa: E402
-from voice.validate import Rejected, resolve  # noqa: E402
+from voice.pipeline import execute, history_record, interpret, interpret_detail, learn_alias  # noqa: E402
+from voice.validate import Rejected, resolve, suggest  # noqa: E402
 
 
 def make_ctx(**overrides):
@@ -140,6 +140,90 @@ class ResolveTest(unittest.TestCase):
         self.assertIn("ไม่เข้าใจ", errors[0])
 
 
+class FuzzyVerbTest(unittest.TestCase):
+    """Verbs as Typhoon/Whisper actually misheard them in the M1 benchmark."""
+
+    def test_recovers_misheard_verbs(self):
+        cases = [
+            ("คนหาร้านกาแฟใกล้ฉัน", "web_search", {"query": "ร้านกาแฟใกล้ฉัน"}),
+            ("ข้นหาสภาพอากาศ", "web_search", {"query": "สภาพอากาศ"}),
+            ("หมดเวิร์ค", "run_mode", {"name": "เวิร์ค"}),
+            ("เข้าหมดเวิร์ก", "run_mode", {"name": "เวิร์ก"}),
+            ("เปิ้ดไลน์", "open_app", {"name": "ไลน์"}),
+        ]
+        for text, name, args in cases:
+            with self.subTest(text=text):
+                [action] = intents.parse(text)
+                self.assertEqual((action.name, action.args), (name, args))
+                self.assertLess(action.confidence, 1.0)
+
+    def test_low_confidence_verb_asks(self):
+        ctx, *_ = make_ctx()
+        [item], _ = interpret("คุณหาราคาทอง", ctx)   # 0.84: plausible but not sure
+        self.assertEqual(item.action.name, "web_search")
+        self.assertTrue(item.needs_confirm)
+
+    def test_ordinary_sentences_are_not_commands(self):
+        for text in ("ขนมปังอร่อย", "สวัสดีครับ", "เงือกล้าย", "วันนี้อากาศดี"):
+            with self.subTest(text=text):
+                self.assertEqual(intents.parse(text), [])
+
+    def test_exact_verbs_keep_full_confidence(self):
+        self.assertEqual(intents.parse("ค้นหาราคาทอง")[0].confidence, 1.0)
+
+
+class LearningTest(unittest.TestCase):
+    def test_confirmed_guess_is_learned(self):
+        ctx, opened, *_ = make_ctx()
+        saved = []
+        [item], _ = interpret("เปิด มงโกดีบี คอมพาส", ctx)
+        self.assertTrue(item.needs_confirm)
+
+        execute([item], ctx, confirm=lambda q: True, save_alias=lambda *a: saved.append(a))
+        self.assertEqual(saved, [("มงโกดีบี คอมพาส", "MongoDB Compass", "app")])
+
+        [again], _ = interpret("เปิด มงโกดีบี คอมพาส", ctx)
+        self.assertFalse(again.needs_confirm)
+        self.assertEqual(again.action.args["name"], "MongoDB Compass")
+
+    def test_cancelled_or_verb_only_guess_is_not_learned(self):
+        ctx, *_ = make_ctx()
+        saved = []
+        [item], _ = interpret("เปิด มงโกดีบี คอมพาส", ctx)
+        execute([item], ctx, confirm=lambda q: False, save_alias=lambda *a: saved.append(a))
+        [item], _ = interpret("เปิ้ดโครม", ctx)        # verb guessed, name certain
+        execute([item], ctx, confirm=lambda q: True, save_alias=lambda *a: saved.append(a))
+        self.assertEqual(saved, [])
+
+    def test_pick_from_suggestions_then_learn(self):
+        ctx, *_ = make_ctx()
+        resolved, rejected = interpret_detail("เปิดร้าย", ctx)
+        self.assertEqual(resolved, [])
+        self.assertEqual(rejected[0].term, "ร้าย")
+
+        options = suggest(rejected[0].term, ctx)
+        self.assertTrue(options)                       # picker has something to show
+        self.assertTrue(learn_alias("ร้าย", "app", "LINE", ctx))
+        [item], _ = interpret("เปิดร้าย", ctx)
+        self.assertEqual(item.action.args["name"], "LINE")
+        self.assertFalse(item.needs_confirm)
+
+    def test_rejects_useless_aliases(self):
+        ctx, *_ = make_ctx()
+        self.assertFalse(learn_alias("ก", "app", "LINE", ctx))
+        self.assertFalse(learn_alias("line", "app", "LINE", ctx))
+        self.assertFalse(learn_alias("xx", "web_search", "LINE", ctx))
+
+    def test_history_record(self):
+        ctx, *_ = make_ctx()
+        resolved, _ = interpret("เปิดไลน์", ctx)
+        results = execute(resolved, ctx, confirm=lambda q: True)
+        source, actions, result = history_record(resolved, results)
+        self.assertEqual((source, result), ("rule", "done"))
+        self.assertNotIn("path", actions[0]["args"])
+        self.assertEqual(history_record([], None), ("none", [], "rejected"))
+
+
 class ValidateGuardTest(unittest.TestCase):
     """Inputs an LLM (v2.1) might produce must be rejected."""
 
@@ -215,9 +299,16 @@ class SchemaUpgradeTest(unittest.TestCase):
                 aliases = database.read_aliases(conn)
                 database.set_setting(conn, "voice_hotkey", "ctrl+alt+v")
                 database.write_app_index(conn, [("LINE", "C:/line.exe", "mode")])
+                database.write_alias(conn, "ร้าย", "LINE", "app")
+                database.add_history(conn, "เปิดร้าย", "rule",
+                                     [{"name": "open_app", "args": {"name": "LINE"}}], "done")
             with database.connect() as conn:
                 self.assertEqual(database.get_setting(conn, "voice_hotkey"), "ctrl+alt+v")
                 self.assertEqual(database.read_app_index(conn), {"LINE": "C:/line.exe"})
+                self.assertEqual(database.read_aliases(conn)["ร้าย"], ("LINE", "app"))
+                [(ts, heard, source, actions, result)] = database.read_history(conn)
+                self.assertEqual((heard, result), ("เปิดร้าย", "done"))
+                self.assertIn('"LINE"', actions)
 
         self.assertEqual(version, "2")
         self.assertEqual(aliases["ไลน์"], ("line", "app"))

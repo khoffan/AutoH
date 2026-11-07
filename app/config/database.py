@@ -77,6 +77,15 @@ CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT
 );
+CREATE TABLE IF NOT EXISTS command_history (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
+    heard   TEXT NOT NULL,            -- text from speech-to-text
+    source  TEXT NOT NULL,            -- 'rule' | 'llm' (v2.1) | 'none'
+    actions TEXT NOT NULL,            -- JSON list of {name, args, score}
+    result  TEXT NOT NULL             -- 'done' | 'cancelled' | 'rejected' | 'error'
+);
+CREATE INDEX IF NOT EXISTS idx_history_ts ON command_history(ts);
 """
 
 _lock = threading.RLock()
@@ -221,10 +230,26 @@ def write_modes(conn: sqlite3.Connection, modes: dict) -> None:
 # ---------------------------------------------------------------- logs
 
 def _prune_logs(conn: sqlite3.Connection) -> None:
+    for table in ("logs", "command_history"):
+        conn.execute(
+            f"DELETE FROM {table} WHERE ts < strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime', ?)",
+            (f"-{LOG_RETENTION_DAYS} days",),
+        )
+
+
+def add_history(conn: sqlite3.Connection, heard: str, source: str, actions: list, result: str) -> None:
     conn.execute(
-        "DELETE FROM logs WHERE ts < strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime', ?)",
-        (f"-{LOG_RETENTION_DAYS} days",),
+        "INSERT INTO command_history (heard, source, actions, result) VALUES (?, ?, ?, ?)",
+        (heard, source, json.dumps(actions, ensure_ascii=False), result),
     )
+
+
+def read_history(conn: sqlite3.Connection, limit: int = 200) -> list[tuple]:
+    """Newest first: (ts, heard, source, actions, result)."""
+    return conn.execute(
+        "SELECT ts, heard, source, actions, result FROM command_history ORDER BY id DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
 
 
 # ---------------------------------------------------------------- migration

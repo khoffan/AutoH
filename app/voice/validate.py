@@ -17,19 +17,37 @@ MAX_ARG_LENGTH = 200
 
 
 class Rejected(Exception):
-    """Action cannot run. Message is shown to the user."""
+    """Action cannot run. Message is shown to the user.
+
+    `term` is set when a spoken name matched nothing, so the UI can offer suggest(term).
+    """
+
+    def __init__(self, message: str, term: str | None = None):
+        super().__init__(message)
+        self.term = term
 
 
 @dataclass
 class Resolved:
     action: Action          # args resolved: canonical names, real path/url
     spec: ActionSpec
-    score: float
+    score: float            # min(verb confidence, target match)
     label: str              # human readable, for confirm dialogs and logs
+    heard: str = ""         # target as spoken, before resolution ("ร้าย"); "" for searches
+    match: float = 1.0      # name-match score alone (score also includes verb confidence)
 
     @property
     def needs_confirm(self) -> bool:
         return self.spec.risk != Risk.SAFE or self.score < AUTO_THRESHOLD
+
+    @property
+    def kind(self) -> str | None:
+        """Alias kind of the resolved target, or None (search)."""
+        return {"open_app": "app", "open_url": "site", "run_mode": "mode"}.get(self.action.name)
+
+    @property
+    def target(self) -> str | None:
+        return self.action.args.get("name") or self.action.args.get("site")
 
 
 def resolve(action: Action, ctx: ActionContext) -> Resolved:
@@ -39,16 +57,33 @@ def resolve(action: Action, ctx: ActionContext) -> Resolved:
     args = _check_args(action.args, spec)
 
     if spec.name == "web_search":
-        return Resolved(Action("web_search", {"query": args["query"]}), spec, 1.0,
-                        f"ค้นหา \"{args['query']}\"")
-    if spec.name == "open_url":
-        return _resolve_target(args["site"], ctx, kinds=("site",))
-    if spec.name == "run_mode":
-        return _resolve_target(args["name"], ctx, kinds=("mode",))
-    if spec.name == "open_app":
+        resolved = Resolved(Action("web_search", {"query": args["query"]}), spec, 1.0,
+                            f"ค้นหา \"{args['query']}\"")
+    elif spec.name == "open_url":
+        resolved = _resolve_target(args["site"], ctx, kinds=("site",))
+    elif spec.name == "run_mode":
+        resolved = _resolve_target(args["name"], ctx, kinds=("mode",))
+    elif spec.name == "open_app":
         # "เปิด X" may also mean a site or a mode; pick the best match, apps win ties.
-        return _resolve_target(args["name"], ctx, kinds=("app", "site", "mode"))
-    raise Rejected(f"No resolver for action: {spec.name}")
+        resolved = _resolve_target(args["name"], ctx, kinds=("app", "site", "mode"))
+    else:
+        raise Rejected(f"No resolver for action: {spec.name}")
+
+    # A guessed verb lowers trust in the whole command.
+    resolved.score = min(resolved.score, action.confidence)
+    return resolved
+
+
+def suggest(term: str, ctx: ActionContext, limit: int = 5, minimum: float = 0.3):
+    """Closest targets for a "did you mean...?" picker: [(kind, name, score)], best first."""
+    from voice.matching import score
+
+    pools = {"app": ctx.apps, "site": ctx.sites, "mode": ctx.modes}
+    ranked = sorted(
+        ((kind, name, score(term, name)) for kind, pool in pools.items() for name in pool),
+        key=lambda item: item[2], reverse=True,
+    )
+    return [item for item in ranked if item[2] >= minimum][:limit]
 
 
 def _check_args(args, spec: ActionSpec) -> dict:
@@ -71,6 +106,7 @@ def _check_args(args, spec: ActionSpec) -> dict:
 
 
 def _resolve_target(term: str, ctx: ActionContext, kinds: tuple[str, ...]) -> Resolved:
+    heard = term
     # 1. Alias (e.g. "ไลน์" -> "line") may also redirect to another kind.
     alias, alias_score = best_match(term, ctx.aliases)
     if alias is not None and alias_score >= AUTO_THRESHOLD:
@@ -87,7 +123,7 @@ def _resolve_target(term: str, ctx: ActionContext, kinds: tuple[str, ...]) -> Re
             best_kind, best_name, best_score = kind, name, s
 
     if best_name is None or best_score < ASK_THRESHOLD:
-        raise Rejected(f"ไม่พบ \"{term}\"")
+        raise Rejected(f"ไม่พบ \"{term}\"", term=heard)
 
     if best_kind == "app":
         action = Action("open_app", {"name": best_name, "path": ctx.apps[best_name]})
@@ -98,4 +134,4 @@ def _resolve_target(term: str, ctx: ActionContext, kinds: tuple[str, ...]) -> Re
     else:
         action = Action("run_mode", {"name": best_name})
         label = f"เข้าโหมด {best_name}"
-    return Resolved(action, REGISTRY[action.name], best_score, label)
+    return Resolved(action, REGISTRY[action.name], best_score, label, heard=heard, match=best_score)

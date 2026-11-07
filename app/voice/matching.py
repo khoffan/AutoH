@@ -106,6 +106,18 @@ def score(query: str, candidate: str) -> float:
     return ratio
 
 
+def verb_score(heard: str, verb: str) -> float:
+    """Stricter than score(): a verb decides WHAT happens, so spelling must also be close.
+
+    0.4 x spelling + 0.6 x sound. "คนหา"/"ค้นหา" = 0.96, "คุณหา" = 0.84, "ขน"/"ค้นหา" = 0.4.
+    """
+    h, v = _compact(heard), _compact(verb)
+    hk, vk = phonetic_key(heard), phonetic_key(verb)
+    if not h or not hk or not vk:
+        return 0.0
+    return 0.4 * SequenceMatcher(None, h, v).ratio() + 0.6 * SequenceMatcher(None, hk, vk).ratio()
+
+
 def best_match(query: str, candidates) -> tuple[str | None, float]:
     """Return (best candidate, score) from an iterable of names."""
     best, best_score = None, 0.0

@@ -15,7 +15,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app"))
 
 from voice.actions import ActionContext  # noqa: E402
-from voice.pipeline import execute, interpret  # noqa: E402
+from voice.pipeline import execute, interpret_detail, learn_alias  # noqa: E402
+from voice.validate import suggest  # noqa: E402
 
 
 def build_context(use_db: bool, dry_run: bool) -> ActionContext:
@@ -48,6 +49,32 @@ def confirm(question: str) -> bool:
     return input(f"   ? {question} [y/N] ").strip().lower() in ("y", "yes", "ใช่")
 
 
+def alias_saver(use_db: bool):
+    """Learned aliases go to the DB with --db; otherwise they live for this session only."""
+    if not use_db:
+        return lambda alias, target, kind: print(f"   + จำ \"{alias}\" = {target} (session only)")
+    from config import database
+
+    def save(alias, target, kind):
+        with database.connect() as conn:
+            database.write_alias(conn, alias, target, kind)
+        print(f"   + จำ \"{alias}\" = {target} (saved)")
+    return save
+
+
+def pick_and_learn(term: str, ctx: ActionContext, save) -> None:
+    options = suggest(term, ctx)
+    if not options:
+        return
+    print(f"   หมายถึงอันไหน? (Enter = ไม่ใช่ทั้งหมด)")
+    for n, (kind, name, s) in enumerate(options, 1):
+        print(f"     {n}. {name} [{kind}] {s:.2f}")
+    choice = input("   เลือก: ").strip()
+    if choice.isdigit() and 1 <= int(choice) <= len(options):
+        kind, name, _ = options[int(choice) - 1]
+        learn_alias(term, kind, name, ctx, save)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", action="store_true", help="use the real autoh.db")
@@ -59,6 +86,7 @@ def main():
 
     print("Scanning apps...")
     ctx = build_context(opts.db, opts.dry_run)
+    save = alias_saver(opts.db)
     print(f"{len(ctx.apps)} apps, {len(ctx.modes)} modes, {len(ctx.aliases)} aliases.")
     print("Type a command (e.g. เปิดไลน์, เปิดยูทูบ, ค้นหาราคาทอง). ':apps' lists apps, empty line quits.\n")
 
@@ -73,13 +101,15 @@ def main():
             print("\n".join(f"   {name}" for name in sorted(ctx.apps)))
             continue
 
-        resolved, errors = interpret(text, ctx)
-        for message in errors:
-            print(f"   x {message}")
+        resolved, rejected = interpret_detail(text, ctx)
+        for exc in rejected:
+            print(f"   x {exc}")
+            if exc.term:
+                pick_and_learn(exc.term, ctx, save)
         for item in resolved:
             print(f"   -> {item.label} (score {item.score:.2f}"
                   f"{', ต้องยืนยัน' if item.needs_confirm else ''})")
-        for item, result in execute(resolved, ctx, confirm):
+        for item, result in execute(resolved, ctx, confirm, save_alias=save):
             print(f"   = {result}")
 
 
