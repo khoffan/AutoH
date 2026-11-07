@@ -6,6 +6,7 @@ action? (not word error rate). See docs/plans/v2.0-voice-commands.md, M1.
     venv\\Scripts\\python.exe scripts\\stt_bench.py record              # read 20 sentences aloud
     venv\\Scripts\\python.exe scripts\\stt_bench.py record --only 3,7   # re-record some
     venv\\Scripts\\python.exe scripts\\stt_bench.py bench               # typhoon (offline, default)
+    venv\\Scripts\\python.exe scripts\\stt_bench.py bench --models typhoon,typhoon-int8
     $env:TYPHOON_API_KEY="..."; venv\\Scripts\\python.exe scripts\\stt_bench.py bench --models typhoon-api
 
 "typhoon" needs the ONNX files in models/typhoon-asr-realtime/ (see SOURCE.txt there).
@@ -182,12 +183,12 @@ TYPHOON_DIR = os.path.join(ROOT, "models", "typhoon-asr-realtime")
 class TyphoonLocal:
     """Typhoon ASR Real-Time, offline via ONNX Runtime (pythaiasr's FastConformer RNN-T)."""
 
-    def __init__(self, model_dir=TYPHOON_DIR):
+    def __init__(self, model_dir=TYPHOON_DIR, suffix=""):
         from pythaiasr.typhoon import FastConformerRNNT
 
         self.model = FastConformerRNNT(
-            encoder_path=os.path.join(model_dir, "encoder-fastconformer-quran-ar.onnx"),
-            decoder_path=os.path.join(model_dir, "decoder_joint-fastconformer-quran-ar.onnx"),
+            encoder_path=os.path.join(model_dir, f"encoder-fastconformer-quran-ar{suffix}.onnx"),
+            decoder_path=os.path.join(model_dir, f"decoder_joint-fastconformer-quran-ar{suffix}.onnx"),
             vocab_path=os.path.join(model_dir, "vocab.json"),
             device="cpu",
         )
@@ -213,6 +214,8 @@ def cmd_bench(models, use_prompt):
             model = TyphoonAPI()
         elif model_name == "typhoon":
             model = TyphoonLocal()
+        elif model_name == "typhoon-int8":   # made by scripts/quantize_typhoon.py
+            model = TyphoonLocal(suffix="-int8")
         else:
             try:
                 from faster_whisper import WhisperModel

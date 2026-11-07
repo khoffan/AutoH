@@ -1,14 +1,16 @@
-"""Manual test for voice commands: type a command instead of speaking.
+"""Manual test for voice commands: type a command, or speak with --mic.
 
     venv\\Scripts\\python.exe scripts\\voice_repl.py            # real actions, no DB
     venv\\Scripts\\python.exe scripts\\voice_repl.py --dry-run  # show only, open nothing
     venv\\Scripts\\python.exe scripts\\voice_repl.py --db       # use autoh.db (modes, aliases, app index)
+    venv\\Scripts\\python.exe scripts\\voice_repl.py --mic --dry-run   # Enter = talk, Enter = stop
 
 Without --db nothing is written to disk: apps are scanned live, aliases are the
 defaults, and modes are empty. --db opens the real database, which migrates
 config.json next to the project root on first run (renamed to config.json.bak).
 """
 import argparse
+import time
 import os
 import sys
 
@@ -79,6 +81,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", action="store_true", help="use the real autoh.db")
     parser.add_argument("--dry-run", action="store_true", help="do not open anything")
+    parser.add_argument("--mic", action="store_true", help="speak instead of typing (Typhoon ASR)")
     opts = parser.parse_args()
 
     for stream in (sys.stdin, sys.stdout):
@@ -88,14 +91,34 @@ def main():
     ctx = build_context(opts.db, opts.dry_run)
     save = alias_saver(opts.db)
     print(f"{len(ctx.apps)} apps, {len(ctx.modes)} modes, {len(ctx.aliases)} aliases.")
-    print("Type a command (e.g. เปิดไลน์, เปิดยูทูบ, ค้นหาราคาทอง). ':apps' lists apps, empty line quits.\n")
+    if opts.mic:
+        from voice.recorder import PushToTalkRecorder
+        from voice.transcriber import Transcriber
+
+        recorder, transcriber = PushToTalkRecorder(), Transcriber()
+        transcriber.warm_up().join()
+        if transcriber.error:
+            sys.exit(transcriber.error)
+        print("Enter = start talking, Enter again = stop. Or type a command. 'q' quits.\n")
+    else:
+        print("Type a command (e.g. เปิดไลน์, เปิดยูทูบ, ค้นหาราคาทอง). ':apps' lists apps, empty line quits.\n")
 
     while True:
         try:
             text = input("> ").strip()
         except (EOFError, KeyboardInterrupt):
             break
-        if not text:
+        if opts.mic and text == "":
+            recorder.start()
+            input("   ● กำลังฟัง... (Enter = หยุด) ")
+            audio = recorder.stop()
+            started = time.perf_counter()
+            text = transcriber.transcribe(audio)
+            print(f"   ได้ยิน: \"{text}\" ({len(audio) / 16000:.1f}s เสียง, "
+                  f"แปลง {time.perf_counter() - started:.2f}s)")
+            if not text:
+                continue
+        if not text or text == "q":
             break
         if text == ":apps":
             print("\n".join(f"   {name}" for name in sorted(ctx.apps)))
