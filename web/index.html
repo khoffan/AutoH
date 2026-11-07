@@ -3,18 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AutoH — Hotkey Automation for Windows</title>
+    <title>AutoH — Hotkeys and Thai voice commands for Windows</title>
     <meta
       name="description"
       content="AutoH is a desktop hotkey and voice automation tool for Windows. Launch groups of apps and URLs with a single keystroke, or just say it in Thai — offline speech recognition, no audio leaves your PC."
-    />
-
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
-      rel="stylesheet"
     />
     <link
       rel="shortcut icon"
@@ -22,1076 +14,694 @@
       type="image/x-icon"
     />
 
-    <!-- Tailwind CSS v4 CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ["Inter", "system-ui", "sans-serif"],
-            },
-            colors: {
-              brand: {
-                50: "#eef2ff",
-                100: "#e0e7ff",
-                200: "#c7d2fe",
-                300: "#a5b4fc",
-                400: "#818cf8",
-                500: "#6366f1",
-                600: "#4f46e5",
-                700: "#4338ca",
-                800: "#3730a3",
-                900: "#312e81",
-              },
-              surface: {
-                900: "#0a0a1a",
-                800: "#0f0f2e",
-                700: "#161638",
-                600: "#1e1e48",
-              },
-            },
-            animation: {
-              float: "float 6s ease-in-out infinite",
-              glow: "glow 3s ease-in-out infinite alternate",
-              "fade-up": "fadeUp 0.8s ease-out forwards",
-              "fade-up-delay": "fadeUp 0.8s ease-out 0.2s forwards",
-              "fade-up-delay-2": "fadeUp 0.8s ease-out 0.4s forwards",
-              "slide-in-left": "slideInLeft 0.8s ease-out forwards",
-              "slide-in-right": "slideInRight 0.8s ease-out forwards",
-              "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-            },
-            keyframes: {
-              float: {
-                "0%, 100%": { transform: "translateY(0px)" },
-                "50%": { transform: "translateY(-20px)" },
-              },
-              glow: {
-                "0%": { boxShadow: "0 0 20px rgba(99,102,241,0.3)" },
-                "100%": {
-                  boxShadow: "0 0 40px rgba(99,102,241,0.6), 0 0 80px rgba(99,102,241,0.2)",
-                },
-              },
-              fadeUp: {
-                "0%": { opacity: "0", transform: "translateY(30px)" },
-                "100%": { opacity: "1", transform: "translateY(0)" },
-              },
-              slideInLeft: {
-                "0%": { opacity: "0", transform: "translateX(-40px)" },
-                "100%": { opacity: "1", transform: "translateX(0)" },
-              },
-              slideInRight: {
-                "0%": { opacity: "0", transform: "translateX(40px)" },
-                "100%": { opacity: "1", transform: "translateX(0)" },
-              },
-            },
-          },
-        },
-      };
-    </script>
+    <!-- Inter for Latin, Noto Sans Thai for Thai (both variable 300–700) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=Noto+Sans+Thai:wght@300..700&display=swap"
+      rel="stylesheet"
+    />
+
     <style>
-      /* Custom glassmorphism */
-      .glass {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+      /* Design: monochrome gallery-white system (see web/DESIGN-mobbin.md).
+         Ink on white, tint ladder instead of shadows, stadium pills, 24/16 px radii,
+         30% squircle icon tiles. Blue only for "New" / "Free" signals. */
+      :root {
+        --ink: #141414;
+        --ink-soft: #262626;
+        --muted: #666666; /* #707070 fails 4.5:1 on --canvas-soft */
+        --faint: #adadad;
+        --canvas: #ffffff;
+        --canvas-soft: #f3f3f3;
+        --hairline: #e0e0e0;
+        --accent: #0066ff;
+        --r-sm: 16px;
+        --r-md: 24px;
       }
-      .glass-strong {
-        background: rgba(255, 255, 255, 0.06);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+      *, *::before, *::after { box-sizing: border-box; }
+      html { scroll-padding-top: 96px; }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: Inter, "Noto Sans Thai", -apple-system, "Helvetica Neue", Arial, sans-serif;
+        font-size: 16px;
+        font-weight: 450;
+        line-height: 1.38;
+        -webkit-font-smoothing: antialiased;
       }
+      a { color: var(--ink); }
+      a:hover { color: var(--muted); }
+      p, h1, h2, h3, ul, ol, dl, dd { margin: 0; }
+      :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 
-      /* Gradient text */
-      .gradient-text {
-        background: linear-gradient(135deg, #818cf8 0%, #06b6d4 50%, #a78bfa 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+      .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+      .section { padding-top: 120px; }
+      .muted { color: var(--muted); }
+      .small { font-size: 14px; line-height: 1.43; }
+      .eyebrow { font-weight: 600; color: var(--muted); }
+      .h2 {
+        margin-top: 12px;
+        font-size: clamp(2rem, 4vw, 2.75rem);
+        font-weight: 650;
+        line-height: 1.13;
       }
+      .lead { font-size: 20px; font-weight: 300; line-height: 1.38; color: var(--ink-soft); }
+      .row { display: flex; flex-wrap: wrap; gap: 16px; }
+      .icon { flex: none; }
 
-      /* Hero gradient orbs */
-      .gradient-orb-1 {
-        position: absolute;
-        width: 600px;
-        height: 600px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
-        top: -200px;
-        right: -200px;
-        animation: float 8s ease-in-out infinite;
+      /* Pills */
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: 9999px;
+        text-decoration: none;
+        font-weight: 600;
+        white-space: nowrap;
       }
-      .gradient-orb-2 {
-        position: absolute;
-        width: 500px;
-        height: 500px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, transparent 70%);
-        bottom: -150px;
-        left: -150px;
-        animation: float 10s ease-in-out infinite reverse;
-      }
-      .gradient-orb-3 {
-        position: absolute;
-        width: 300px;
-        height: 300px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(167, 139, 250, 0.1) 0%, transparent 70%);
-        top: 40%;
-        left: 50%;
-        animation: float 7s ease-in-out infinite 2s;
-      }
-
-      /* Keyboard key styling */
-      .kbd {
+      .btn { height: 52px; padding: 0 24px; }
+      .btn-primary { background: var(--ink); color: #fff; }
+      .btn-primary:hover { background: var(--ink-soft); color: #fff; }
+      .btn-outline { background: var(--canvas); color: var(--ink); border: 1px solid var(--hairline); }
+      .btn-outline:hover { background: var(--canvas-soft); color: var(--ink); }
+      .btn-white { background: var(--canvas); color: var(--ink); }
+      .badge {
         display: inline-block;
-        padding: 4px 10px;
-        font-size: 0.8rem;
-        font-family: "Inter", monospace;
-        color: #c7d2fe;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 6px;
-        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.33;
+      }
+      .badge-accent { background: var(--accent); color: #fff; }
+      .badge-white { background: var(--canvas); }
+
+      /* Keycaps */
+      .kc {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        background: var(--canvas);
+        color: var(--ink);
+        border: 1px solid var(--hairline);
+      }
+      .kc-ink { background: var(--ink); color: #fff; border-color: var(--ink); }
+      .kc-held { background: #fff; color: var(--ink); border-color: #fff; }
+      .keys { display: inline-flex; gap: 6px; }
+
+      /* Surfaces */
+      .tile { padding: 24px; border-radius: var(--r-md); background: var(--canvas-soft); }
+      .card { padding: 24px; border-radius: var(--r-md); background: var(--canvas); border: 1px solid var(--hairline); }
+      .squircle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 30%;
+        background: var(--canvas-soft);
+        color: var(--ink);
       }
 
-      /* Scroll reveal animation */
-      .reveal {
-        opacity: 0;
-        transform: translateY(30px);
-        transition:
-          opacity 0.8s ease,
-          transform 0.8s ease;
+      /* Nav */
+      .nav-shell { position: sticky; top: 16px; z-index: 10; padding: 16px 16px 0; }
+      .nav {
+        max-width: 880px;
+        margin: 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 8px 8px 16px;
+        border-radius: 9999px;
+        background: var(--canvas-soft);
       }
-      .reveal.active {
-        opacity: 1;
-        transform: translateY(0);
+      .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); border-radius: 9999px; }
+      .brand-mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 30%;
+        background: var(--ink);
+        color: #fff;
+        font-weight: 650;
       }
-
-      /* Feature card hover */
-      .feature-card {
-        transition:
-          transform 0.3s ease,
-          box-shadow 0.3s ease,
-          border-color 0.3s ease;
-      }
-      .feature-card:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 20px 60px rgba(99, 102, 241, 0.15);
-        border-color: rgba(99, 102, 241, 0.3);
-      }
-
-      /* Step connector line */
-      .step-line {
-        position: absolute;
-        top: 32px;
-        left: 50%;
-        width: 2px;
-        height: calc(100% - 32px);
-        background: linear-gradient(to bottom, rgba(99, 102, 241, 0.4), transparent);
-      }
-
-      /* Download button glow */
-      .btn-download {
-        position: relative;
-        overflow: hidden;
-        transition: all 0.3s ease;
-      }
-      .btn-download::before {
-        content: "";
-        position: absolute;
-        inset: -2px;
-        background: linear-gradient(135deg, #6366f1, #06b6d4, #a78bfa, #6366f1);
-        background-size: 300% 300%;
-        border-radius: inherit;
-        z-index: -1;
-        animation: gradient-rotate 4s ease infinite;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-      }
-      .btn-download:hover::before {
-        opacity: 1;
-      }
-      @keyframes gradient-rotate {
-        0% {
-          background-position: 0% 50%;
-        }
-        50% {
-          background-position: 100% 50%;
-        }
-        100% {
-          background-position: 0% 50%;
-        }
+      .brand-name { font-weight: 650; font-size: 18px; }
+      .nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+      .nav-link { padding: 10px 14px; border-radius: 9999px; text-decoration: none; font-weight: 600; color: var(--ink); }
+      .nav-link:hover { background: var(--canvas); color: var(--ink); }
+      .nav-cta { height: 44px; padding: 0 18px; }
+      @media (max-width: 640px) {
+        .nav-link.optional { display: none; }
       }
 
-      /* Smooth scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
+      /* Hero */
+      .hero { padding-top: 120px; text-align: center; }
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 28px;
+        padding: 6px 6px 6px 14px;
+        border-radius: 9999px;
+        background: var(--canvas-soft);
+        font-size: 14px;
       }
-      ::-webkit-scrollbar-track {
-        background: #0a0a1a;
+      .hero h1 {
+        max-width: 15ch;
+        margin: 0 auto;
+        font-size: clamp(2.75rem, 6.4vw, 5rem);
+        font-weight: 650;
+        line-height: 1;
       }
-      ::-webkit-scrollbar-thumb {
-        background: #312e81;
-        border-radius: 4px;
+      .hero .lead { max-width: 36rem; margin: 28px auto 0; }
+      .hero-ctas { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 36px; }
+      .hero-meta { margin-top: 18px; }
+
+      /* Voice console */
+      .console-wrap { max-width: 880px; margin: 0 auto; padding-top: 80px; }
+      .console { background: var(--ink); color: #fff; border-radius: var(--r-md); padding: 32px; }
+      .console-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+      .listening { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--faint); }
+      .dot { width: 8px; height: 8px; border-radius: 9999px; background: #fff; }
+      .wave { display: flex; align-items: center; gap: 4px; height: 80px; margin-top: 28px; }
+      .wave span { flex: 1 1 0; border-radius: 9999px; background: #fff; transition: height 0.25s ease, opacity 0.25s ease; }
+      .heard-label { margin: 28px 0 6px; font-size: 14px; color: var(--faint); }
+      .heard { font-size: clamp(1.75rem, 3.2vw, 2.25rem); font-weight: 650; line-height: 1.13; }
+      .result { display: flex; align-items: center; gap: 14px; margin-top: 24px; padding: 16px; border-radius: var(--r-sm); background: var(--ink-soft); }
+      .result .squircle { width: 40px; height: 40px; background: #fff; flex: none; }
+      .result-title { font-size: 18px; font-weight: 600; }
+      .result-note { margin-top: 2px; font-size: 14px; color: var(--faint); }
+      .seg-row { display: flex; justify-content: center; margin-top: 20px; }
+      .seg {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px;
+        padding: 4px;
+        border-radius: 28px;
+        background: var(--canvas-soft);
       }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #4338ca;
+      .seg button {
+        min-height: 44px;
+        padding: 0 18px;
+        border: 0;
+        border-radius: 9999px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .seg button[aria-pressed="true"] {
+        background: #fff;
+        color: var(--ink);
+        box-shadow: 0 1px 3px rgba(20, 20, 20, 0.12); /* the system's one allowed lift */
+      }
+      .console-note { margin-top: 14px; text-align: center; }
+
+      /* Facts */
+      .fact { flex: 1 1 230px; }
+      .fact-title { font-size: 24px; font-weight: 650; line-height: 1.25; }
+      .fact p + p { margin-top: 8px; }
+
+      /* Voice */
+      .voice-intro { max-width: 20ch; }
+      .voice-lead { max-width: 38rem; margin-top: 20px; }
+      .examples { margin-top: 48px; }
+      .example { flex: 1 1 250px; min-width: 0; }
+      .example-said { margin-top: 20px; font-size: 20px; font-weight: 600; line-height: 1.3; }
+      .example .small { margin-top: 6px; }
+      .behaviours { margin-top: 16px; }
+      .behaviour { flex: 1 1 300px; }
+      .behaviour-title { margin-top: 16px; font-size: 20px; font-weight: 600; line-height: 1.3; }
+      .behaviour .small { margin-top: 6px; }
+
+      /* Modes */
+      .modes { display: flex; flex-wrap: wrap; align-items: center; gap: 48px; }
+      .modes-copy { flex: 1 1 420px; min-width: 0; }
+      .modes-copy .h2 { max-width: 16ch; }
+      .modes-copy .lead { margin-top: 20px; }
+      .checks { margin-top: 28px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+      .checks li { display: flex; gap: 12px; align-items: flex-start; }
+      .checks svg { margin-top: 1px; }
+      .mode-card { flex: 1 1 400px; min-width: 0; }
+      .mode-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+      .mode-name { font-size: 24px; font-weight: 650; line-height: 1.25; }
+      .mode-items { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
+      .mode-item { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: var(--r-sm); background: var(--canvas); }
+      .mode-item .squircle { width: 40px; height: 40px; }
+      .mode-item .squircle.ink { background: var(--ink); color: #fff; font-weight: 650; }
+      .mode-item-name { font-weight: 600; }
+      .mode-item-kind { margin-left: auto; }
+      .mode-foot { margin-top: 16px; font-size: 12px; }
+
+      /* Steps */
+      .steps { margin-top: 48px; padding: 0; list-style: none; }
+      .step { flex: 1 1 300px; }
+      .step-num { font-size: 44px; font-weight: 650; line-height: 1; }
+      .step-title { margin-top: 20px; font-size: 20px; font-weight: 600; line-height: 1.3; }
+      .step .small { margin-top: 6px; }
+
+      /* Shortcuts */
+      .shortcuts { margin-top: 48px; border-radius: var(--r-md); border: 1px solid var(--hairline); overflow: hidden; }
+      .shortcut {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 24px;
+      }
+      .shortcut + .shortcut { border-top: 1px solid var(--canvas-soft); }
+      .shortcut.featured { background: var(--canvas-soft); }
+      .shortcut-name { font-weight: 600; }
+      .shortcut .small { margin-top: 2px; }
+
+      /* Download */
+      .download { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; padding: 48px; border-radius: var(--r-md); background: var(--canvas-soft); }
+      .download-copy { flex: 1 1 420px; min-width: 0; }
+      .download-copy .h2 { margin-top: 16px; }
+      .download-copy .lead { max-width: 30rem; margin-top: 16px; }
+      .download-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+      .download-note { max-width: 30rem; margin-top: 16px; }
+      .reqs { flex: 1 1 320px; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .req { padding: 16px; border-radius: var(--r-sm); background: var(--canvas); }
+      .req dt { font-size: 12px; color: var(--muted); }
+      .req dd { margin-top: 4px; font-weight: 600; }
+      @media (max-width: 640px) {
+        .download { padding: 28px 20px; }
+        .console { padding: 24px 20px; }
       }
 
-      /* Mobile nav animation */
-      .mobile-menu {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease;
-      }
-      .mobile-menu.open {
-        max-height: 300px;
+      /* Footer */
+      footer { margin-top: 120px; background: var(--ink); color: #fff; border-radius: var(--r-md) var(--r-md) 0 0; }
+      .footer-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; padding-top: 72px; padding-bottom: 48px; }
+      .footer-brand { flex: 1 1 360px; min-width: 0; }
+      .footer-word { font-size: clamp(3rem, 8vw, 5rem); font-weight: 650; line-height: 1; }
+      .footer-tag { max-width: 26rem; margin-top: 16px; color: var(--faint); }
+      .footer-cols { display: flex; flex-wrap: wrap; gap: 56px; }
+      .footer-col { display: flex; flex-direction: column; gap: 10px; }
+      .footer-col a { color: var(--faint); text-decoration: none; }
+      .footer-col a:hover { color: #fff; }
+      .footer-col a.strong { color: #fff; font-weight: 600; }
+      .footer-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-top: 20px; padding-bottom: 32px; font-size: 14px; color: var(--faint); }
+      footer :focus-visible { outline-color: #fff; }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .wave span { transition: none; }
       }
     </style>
   </head>
-  <body class="bg-surface-900 text-gray-200 font-sans antialiased overflow-x-hidden">
-    <!-- ═══════════════════════════════ NAVBAR ═══════════════════════════════ -->
-    <nav class="fixed top-0 w-full z-50 glass-strong">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-          <!-- Logo -->
-          <a href="#" class="flex items-center gap-2 group">
-            <img
-              src="https://raw.githubusercontent.com/khoffan/AutoH/refs/heads/main/assets/autoH_icon.ico"
-              alt="AutoH Icon"
-              class="w-10 h-10"
-            />
-            <span class="text-xl font-bold text-white tracking-tight"
-              >Auto<span class="text-brand-400">H</span></span
-            >
-          </a>
 
-          <!-- Desktop Nav -->
-          <div class="hidden md:flex items-center gap-8">
-            <a href="#features" class="text-sm text-gray-400 hover:text-white transition-colors"
-              >Features</a
-            >
-            <a href="#how-it-works" class="text-sm text-gray-400 hover:text-white transition-colors"
-              >How It Works</a
-            >
-            <a href="#voice" class="text-sm text-gray-400 hover:text-white transition-colors"
-              >Voice</a
-            >
-            <a href="#shortcuts" class="text-sm text-gray-400 hover:text-white transition-colors"
-              >Shortcuts</a
-            >
-            <a
-              href="https://github.com/khoffan/AutoH/releases/download/autoh_v2.0.0/AutoH-Setup-2.0.0-window-version-64.zip"
-              download="AutoH-Setup-2.0.0-window-version-64.zip"
-              class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition-all shadow-lg shadow-brand-600/25 hover:shadow-brand-500/40"
-            >
-              <svg
-                class="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"
-                />
-              </svg>
-              Download
-            </a>
-          </div>
-
-          <!-- Mobile Hamburger -->
-          <button
-            id="menu-toggle"
-            class="md:hidden text-gray-400 hover:text-white transition-colors"
+  <body>
+    <!-- ═════════════ NAV (floating pill) ═════════════ -->
+    <div class="nav-shell">
+      <nav class="nav" aria-label="Main">
+        <a class="brand" href="#top">
+          <span class="brand-mark" aria-hidden="true">H</span>
+          <span class="brand-name">AutoH</span>
+        </a>
+        <div class="nav-links">
+          <a class="nav-link" href="#voice">Voice</a>
+          <a class="nav-link optional" href="#modes">Modes</a>
+          <a class="nav-link optional" href="#shortcuts">Shortcuts</a>
+          <a class="nav-link optional" href="https://github.com/khoffan/AutoH">GitHub</a>
+          <a
+            class="pill btn-primary nav-cta"
+            href="https://github.com/khoffan/AutoH/releases/download/autoh_v2.0.0/AutoH-Setup-2.0.0-window-version-64.zip"
+            download="AutoH-Setup-2.0.0-window-version-64.zip"
+            >Download</a
           >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
         </div>
+      </nav>
+    </div>
 
-        <!-- Mobile Menu -->
-        <div id="mobile-menu" class="mobile-menu md:hidden">
-          <div class="pb-4 space-y-2">
-            <a
-              href="#features"
-              class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
-              >Features</a
-            >
-            <a
-              href="#how-it-works"
-              class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
-              >How It Works</a
-            >
-            <a
-              href="#voice"
-              class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
-              >Voice</a
-            >
-            <a
-              href="#shortcuts"
-              class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
-              >Shortcuts</a
-            >
-            <a
-              href="https://github.com/khoffan/AutoH/releases/download/autoh_v2.0.0/AutoH-Setup-2.0.0-window-version-64.zip"
-              download="AutoH-Setup-2.0.0-window-version-64.zip"
-              class="block px-3 py-2 rounded-lg text-sm text-brand-400 font-semibold hover:bg-brand-600/20 transition-all"
-              >Download</a
-            >
+    <main id="top">
+      <!-- ═════════════ HERO ═════════════ -->
+      <section class="wrap hero">
+        <p class="hero-badge">
+          Thai voice commands, fully offline
+          <span class="badge badge-accent">New in 2.0</span>
+        </p>
+        <h1>One hotkey. One sentence. Your whole workspace.</h1>
+        <p class="lead">
+          AutoH opens your apps and sites in groups with one keystroke — or hold Ctrl Alt V and
+          just say it, in Thai or English.
+        </p>
+        <div class="hero-ctas">
+          <a
+            class="pill btn btn-primary"
+            href="https://github.com/khoffan/AutoH/releases/download/autoh_v2.0.0/AutoH-Setup-2.0.0-window-version-64.zip"
+            download="AutoH-Setup-2.0.0-window-version-64.zip"
+          >
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
+            Download for Windows
+          </a>
+          <a class="pill btn btn-outline" href="#voice">See what you can say</a>
+        </div>
+        <p class="hero-meta small muted">Free and open source · Windows 10/11, 64-bit · v2.0.0</p>
+      </section>
+
+      <!-- Voice console showcase -->
+      <section class="wrap" aria-label="Voice command demo">
+        <div class="console-wrap">
+          <div class="console">
+            <div class="console-top">
+              <span class="listening"><span class="dot"></span>Listening — release to send</span>
+              <span class="keys"><span class="kc kc-held">Ctrl</span><span class="kc kc-held">Alt</span><span class="kc kc-held">V</span></span>
+            </div>
+            <div class="wave" id="wave" aria-hidden="true"></div>
+            <p class="heard-label">Heard</p>
+            <p class="heard" lang="th" id="heard" aria-live="polite">“เปิดไลน์”</p>
+            <div class="result">
+              <span class="squircle" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10" /></svg>
+              </span>
+              <div>
+                <p class="result-title" id="result">Opened LINE</p>
+                <p class="result-note" id="note">Already running? Its window comes to the front.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="seg-row">
+            <div class="seg" role="group" aria-label="Try an example command" id="examples-seg">
+              <button type="button" lang="th" data-i="0" aria-pressed="true">เปิดไลน์</button>
+              <button type="button" lang="th" data-i="1" aria-pressed="false">เปิดเพลง ขี้หึง ซิลลี่ฟูลส์</button>
+              <button type="button" lang="th" data-i="2" aria-pressed="false">ค้นหาราคาทอง</button>
+              <button type="button" lang="th" data-i="3" aria-pressed="false">ตั้งค่าไวไฟ</button>
+              <button type="button" data-i="4" aria-pressed="false">open chrome</button>
+            </div>
+          </div>
+          <p class="console-note small muted">Speech becomes text on your PC. Audio is never saved or uploaded.</p>
+        </div>
+      </section>
+
+      <!-- ═════════════ FACTS ═════════════ -->
+      <section class="wrap section" aria-label="Highlights">
+        <div class="row">
+          <div class="tile fact">
+            <p class="fact-title">Offline.</p>
+            <p class="small muted">Typhoon ASR runs on your CPU. No account, no API key.</p>
+          </div>
+          <div class="tile fact">
+            <p class="fact-title">≈ 0.7 s.</p>
+            <p class="small muted">From releasing the key to text, on a laptop CPU in our tests.</p>
+          </div>
+          <div class="tile fact">
+            <p class="fact-title">Asks first.</p>
+            <p class="small muted">Unclear names need a yes. No answer in 8 seconds cancels.</p>
+          </div>
+          <div class="tile fact">
+            <p class="fact-title">Learns.</p>
+            <p class="small muted">Pick the right app once; AutoH remembers the word.</p>
           </div>
         </div>
-      </div>
-    </nav>
+      </section>
 
-    <!-- ═══════════════════════════════ HERO ═══════════════════════════════ -->
-    <section class="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
-      <!-- Background orbs -->
-      <div class="gradient-orb-1"></div>
-      <div class="gradient-orb-2"></div>
-      <div class="gradient-orb-3"></div>
-
-      <div class="relative max-w-5xl mx-auto px-4 sm:px-6 text-center">
-        <!-- Badge -->
-        <div
-          class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-xs font-medium text-brand-300 mb-8 animate-fade-up"
-        >
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          New in v2.0 — Thai voice commands, fully offline
-        </div>
-
-        <!-- Headline -->
-        <h1
-          class="text-5xl sm:text-6xl lg:text-7xl font-black leading-tight tracking-tight opacity-0 animate-fade-up"
-        >
-          One Hotkey. One Word.<br />
-          <span class="gradient-text">All Your Apps.</span>
-        </h1>
-
-        <!-- Sub-headline -->
-        <p
-          class="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed opacity-0 animate-fade-up-delay"
-        >
-          AutoH launches groups of applications and websites with a single keystroke — or just
-          hold <span class="kbd">Ctrl+Alt+V</span> and say it. Open apps, play music, search the
-          web and jump to Windows settings by voice, in Thai or English.
+      <!-- ═════════════ VOICE ═════════════ -->
+      <section id="voice" class="wrap section">
+        <p class="eyebrow">Voice commands</p>
+        <h2 class="h2 voice-intro">Say what you want. AutoH already knows your apps.</h2>
+        <p class="lead voice-lead">
+          Installed programs are found automatically. English names spoken the Thai way —
+          <span lang="th">“กิตทับ”, “วินรา”</span> — still match.
         </p>
 
-        <!-- CTA Buttons -->
-        <div
-          class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 opacity-0 animate-fade-up-delay-2"
-        >
-          <a
-            href="https://github.com/khoffan/AutoH/releases/download/autoh_v2.0.0/AutoH-Setup-2.0.0-window-version-64.zip"
-            download="AutoH-Setup-2.0.0-window-version-64.zip"
-            class="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white font-bold text-lg shadow-2xl shadow-brand-600/30 hover:shadow-brand-500/40 transition-all hover:scale-105 active:scale-95"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"
-              />
-            </svg>
-            Download v2.0.0
-          </a>
-          <a
-            href="#features"
-            class="inline-flex items-center gap-2 px-8 py-4 rounded-xl glass hover:bg-white/5 text-gray-300 hover:text-white font-semibold transition-all"
-          >
-            Learn More
-            <svg
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </a>
-        </div>
-
-        <!-- Hotkey preview -->
-        <div
-          class="mt-16 inline-flex items-center gap-3 glass-strong rounded-2xl px-8 py-5 animate-float"
-        >
-          <span class="kbd">Ctrl</span>
-          <span class="text-gray-500">+</span>
-          <span class="kbd">Alt</span>
-          <span class="text-gray-500">+</span>
-          <span class="kbd">W</span>
-          <span class="text-gray-500 mx-2">→</span>
-          <div class="flex items-center gap-2">
-            <span
-              class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 text-sm"
-              >🌐</span
-            >
-            <span
-              class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-sm"
-              >💻</span
-            >
-            <span
-              class="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-sm"
-              >📁</span
-            >
-            <span
-              class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm"
-              >📝</span
-            >
+        <div class="row examples">
+          <div class="card example">
+            <span class="squircle"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v14H3zM3 9h18" /></svg></span>
+            <p class="example-said" lang="th">“เปิดไลน์”</p>
+            <p class="small muted">Open an app — or bring it to the front</p>
+          </div>
+          <div class="card example">
+            <span class="squircle"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0a3 3 0 1 1 6 0zM20 16a3 3 0 1 1-6 0a3 3 0 1 1 6 0z" /></svg></span>
+            <p class="example-said" lang="th">“เปิดเพลง ขี้หึง ซิลลี่ฟูลส์”</p>
+            <p class="small muted">Play the first match on YouTube</p>
+          </div>
+          <div class="card example">
+            <span class="squircle"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM21 21l-5-5" /></svg></span>
+            <p class="example-said" lang="th">“ค้นหาราคาทอง”</p>
+            <p class="small muted">Search the web</p>
+          </div>
+          <div class="card example">
+            <span class="squircle"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" /></svg></span>
+            <p class="example-said" lang="th">“เปิดยูทูบ”</p>
+            <p class="small muted">Open a website</p>
+          </div>
+          <div class="card example">
+            <span class="squircle"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h6l2 2h10v11H3z" /></svg></span>
+            <p class="example-said" lang="th">“เปิดโฟลเดอร์ดาวน์โหลด”</p>
+            <p class="small muted">Open Downloads, Documents, Desktop…</p>
+          </div>
+          <div class="card example">
+            <span class="squircle"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4" /></svg></span>
+            <p class="example-said" lang="th">“ตั้งค่าไวไฟ”</p>
+            <p class="small muted">Jump to a Windows Settings page</p>
+          </div>
+          <div class="card example">
+            <span class="squircle"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5" /></svg></span>
+            <p class="example-said" lang="th">“เข้าโหมด work”</p>
+            <p class="small muted">Run one of your saved modes</p>
+          </div>
+          <div class="card example">
+            <span class="squircle"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v14H3zM3 9h18" /></svg></span>
+            <p class="example-said">“open chrome”</p>
+            <p class="small muted">English works too</p>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- ═══════════════════════════════ FEATURES ═══════════════════════════════ -->
-    <section id="features" class="relative py-28 sm:py-36">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Section Header -->
-        <div class="text-center mb-16 reveal">
-          <span
-            class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-brand-400 bg-brand-500/10 mb-4"
-            >Features</span
-          >
-          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
-            Everything you need to <span class="gradient-text">automate your workflow</span>
-          </h2>
-          <p class="mt-4 text-gray-400 max-w-xl mx-auto">
-            Streamline your daily routine with powerful hotkey automation built for Windows power
-            users.
-          </p>
+        <div class="row behaviours">
+          <div class="tile behaviour">
+            <span class="badge badge-white">Sure</span>
+            <p class="behaviour-title">Runs right away.</p>
+            <p class="small muted"><span lang="th">“เปิดไลน์”</span> opens LINE. Already running? Its window comes to the front.</p>
+          </div>
+          <div class="tile behaviour">
+            <span class="badge badge-white">Not sure</span>
+            <p class="behaviour-title">Asks before acting.</p>
+            <p class="small muted"><span lang="th">“เปิด crome”</span> → “Open Google Chrome?” Enter confirms; Esc or silence cancels.</p>
+          </div>
+          <div class="tile behaviour">
+            <span class="badge badge-white">Unknown</span>
+            <p class="behaviour-title">Lets you choose.</p>
+            <p class="small muted">Pick the closest app — or search it, or play it on YouTube. Your choice is remembered.</p>
+          </div>
         </div>
+      </section>
 
-        <!-- Feature Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <!-- Feature 1 -->
-          <div class="feature-card glass rounded-2xl p-8 reveal">
-            <div
-              class="w-14 h-14 rounded-xl bg-gradient-to-br from-brand-500/20 to-brand-600/10 flex items-center justify-center text-2xl mb-6"
-            >
-              ⌨️
+      <!-- ═════════════ MODES ═════════════ -->
+      <section id="modes" class="wrap section">
+        <div class="modes">
+          <div class="modes-copy">
+            <p class="eyebrow">Hotkey modes</p>
+            <h2 class="h2">Group your workday behind one key.</h2>
+            <p class="lead">
+              Make a mode like “work” or “study”, pick its apps and sites. One shortcut — or
+              <span lang="th">“เข้าโหมด work”</span> — opens them all.
+            </p>
+            <ul class="checks">
+              <li><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg><span>Saved automatically — no config file to place by hand</span></li>
+              <li><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg><span>Import / Export JSON to back up or move to another PC</span></li>
+              <li><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg><span>Upgrading from v1? Your old modes are carried over</span></li>
+            </ul>
+          </div>
+
+          <div class="tile mode-card" aria-label="Example mode">
+            <div class="mode-head">
+              <p class="mode-name">work</p>
+              <span class="keys"><span class="kc">Ctrl</span><span class="kc">Alt</span><span class="kc kc-ink">T</span></span>
             </div>
-            <h3 class="text-xl font-bold text-white mb-3">Custom Hotkey Modes</h3>
-            <p class="text-gray-400 leading-relaxed">
-              Define unlimited modes like "Work", "Gaming", "Study" — each with its own hotkey and
-              set of apps to launch.
+            <div class="mode-items">
+              <div class="mode-item">
+                <span class="squircle ink" aria-hidden="true">L</span>
+                <span class="mode-item-name">LINE</span><span class="mode-item-kind small muted">App</span>
+              </div>
+              <div class="mode-item">
+                <span class="squircle ink" aria-hidden="true">M</span>
+                <span class="mode-item-name">MongoDB Compass</span><span class="mode-item-kind small muted">App</span>
+              </div>
+              <div class="mode-item">
+                <span class="squircle" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" /></svg></span>
+                <span class="mode-item-name">github.com</span><span class="mode-item-kind small muted">Site</span>
+              </div>
+            </div>
+            <p class="mode-foot muted">Example mode — yours can hold any apps and sites.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════ GET STARTED ═════════════ -->
+      <section class="wrap section">
+        <p class="eyebrow">Get started</p>
+        <h2 class="h2">Running in three steps.</h2>
+        <ol class="row steps">
+          <li class="card step">
+            <p class="step-num">1</p>
+            <p class="step-title">Install.</p>
+            <p class="small muted">Unzip and run AutoH-Setup-2.0.0.exe. Installs for your user only — no administrator rights.</p>
+          </li>
+          <li class="card step">
+            <p class="step-num">2</p>
+            <p class="step-title">Make a mode, if you like.</p>
+            <p class="small muted">Choose apps and sites, give it a Ctrl+Alt hotkey. Voice works without any mode.</p>
+          </li>
+          <li class="tile step">
+            <p class="step-num">3</p>
+            <p class="step-title">Press it — or say it.</p>
+            <p class="small muted">Hit your hotkey, or hold Ctrl+Alt+V, say <span lang="th">“เปิดไลน์”</span> and let go.</p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- ═════════════ SHORTCUTS ═════════════ -->
+      <section id="shortcuts" class="wrap section">
+        <p class="eyebrow">Keyboard</p>
+        <h2 class="h2">Built-in shortcuts.</h2>
+        <div class="shortcuts">
+          <div class="shortcut featured">
+            <div><p class="shortcut-name">Voice command (hold)</p><p class="small muted">Hold, speak, release. Change the key in Voice Settings.</p></div>
+            <span class="keys"><span class="kc">Ctrl</span><span class="kc">Alt</span><span class="kc kc-ink">V</span></span>
+          </div>
+          <div class="shortcut">
+            <div><p class="shortcut-name">Mode Manager</p><p class="small muted">Edit modes, Import / Export, Voice Settings</p></div>
+            <span class="keys"><span class="kc">Ctrl</span><span class="kc">Alt</span><span class="kc">E</span></span>
+          </div>
+          <div class="shortcut">
+            <div><p class="shortcut-name">Status</p><p class="small muted">System state, uptime and voice status</p></div>
+            <span class="keys"><span class="kc">Ctrl</span><span class="kc">Alt</span><span class="kc">I</span></span>
+          </div>
+          <div class="shortcut">
+            <div><p class="shortcut-name">Pause / Resume</p><p class="small muted">Turn hotkeys and voice on or off</p></div>
+            <span class="keys"><span class="kc">Ctrl</span><span class="kc">Alt</span><span class="kc">P</span></span>
+          </div>
+          <div class="shortcut">
+            <div><p class="shortcut-name">Reset</p><p class="small muted">Allow modes to open again</p></div>
+            <span class="keys"><span class="kc">Ctrl</span><span class="kc">Alt</span><span class="kc">S</span></span>
+          </div>
+          <div class="shortcut">
+            <div><p class="shortcut-name">Quit</p><p class="small muted">AutoH keeps running until you quit</p></div>
+            <span class="keys"><span class="kc">Ctrl</span><span class="kc">Alt</span><span class="kc">Q</span></span>
+          </div>
+          <div class="shortcut">
+            <div><p class="shortcut-name">Your modes</p><p class="small muted">Any Ctrl+Alt key you assign</p></div>
+            <span class="keys"><span class="kc">Ctrl</span><span class="kc">Alt</span><span class="kc">?</span></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════ DOWNLOAD ═════════════ -->
+      <section id="download" class="wrap section">
+        <div class="download">
+          <div class="download-copy">
+            <span class="badge badge-accent">Free</span>
+            <h2 class="h2">Get AutoH 2.0.</h2>
+            <p class="lead">Hotkeys and offline voice commands in one installer. Open source.</p>
+            <div class="download-ctas">
+              <a
+                class="pill btn btn-primary"
+                href="https://github.com/khoffan/AutoH/releases/download/autoh_v2.0.0/AutoH-Setup-2.0.0-window-version-64.zip"
+                download="AutoH-Setup-2.0.0-window-version-64.zip"
+              >
+                <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
+                Download v2.0.0
+              </a>
+              <a class="pill btn btn-white" href="https://github.com/khoffan/AutoH/releases/tag/autoh_v2.0.0">Release notes ↗</a>
+            </div>
+            <p class="download-note small muted">
+              Windows SmartScreen may warn because the app is not code-signed yet: choose More
+              info, then Run anyway.
             </p>
           </div>
-
-          <!-- Feature 2 -->
-          <div class="feature-card glass rounded-2xl p-8 reveal">
-            <div
-              class="w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 flex items-center justify-center text-2xl mb-6"
-            >
-              🚀
-            </div>
-            <h3 class="text-xl font-bold text-white mb-3">Instant App Launch</h3>
-            <p class="text-gray-400 leading-relaxed">
-              Open multiple applications and browser URLs simultaneously with a single keystroke —
-              no clicking, no searching. Already running? AutoH brings its window to the front.
-            </p>
-          </div>
-
-          <!-- Feature 3 -->
-          <div class="feature-card glass rounded-2xl p-8 reveal">
-            <div
-              class="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center text-2xl mb-6"
-            >
-              ⏸️
-            </div>
-            <h3 class="text-xl font-bold text-white mb-3">Pause & Resume</h3>
-            <p class="text-gray-400 leading-relaxed">
-              Toggle the system on and off with <span class="kbd">Ctrl+Alt+P</span>. Restart anytime
-              with <span class="kbd">Ctrl+Alt+S</span>.
-            </p>
-          </div>
-
-          <!-- Feature 4 -->
-          <div class="feature-card glass rounded-2xl p-8 reveal">
-            <div
-              class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center text-2xl mb-6"
-            >
-              🎙️
-            </div>
-            <h3 class="text-xl font-bold text-white mb-3">Voice Commands <span class="ml-1 align-middle text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">NEW</span></h3>
-            <p class="text-gray-400 leading-relaxed">
-              Hold <span class="kbd">Ctrl+Alt+V</span> and speak. Thai speech recognition runs
-              offline on your PC — no audio is ever sent anywhere. Asks before acting when unsure
-              and learns the words you use.
-            </p>
-          </div>
-
-          <!-- Feature 5 -->
-          <div class="feature-card glass rounded-2xl p-8 reveal">
-            <div
-              class="w-14 h-14 rounded-xl bg-gradient-to-br from-rose-500/20 to-rose-600/10 flex items-center justify-center text-2xl mb-6"
-            >
-              🖥️
-            </div>
-            <h3 class="text-xl font-bold text-white mb-3">Visual Setup UI</h3>
-            <p class="text-gray-400 leading-relaxed">
-              Configure modes through an intuitive graphical interface — browse installed apps, set
-              hotkeys and URLs. Voice Settings lets you change the talk key, manage learned words
-              and review command history.
-            </p>
-          </div>
-
-          <!-- Feature 6 -->
-          <div class="feature-card glass rounded-2xl p-8 reveal">
-            <div
-              class="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500/20 to-violet-600/10 flex items-center justify-center text-2xl mb-6"
-            >
-              📋
-            </div>
-            <h3 class="text-xl font-bold text-white mb-3">Zero-Setup Storage</h3>
-            <p class="text-gray-400 leading-relaxed">
-              Settings are saved automatically — no config file to place by hand. Import / Export
-              JSON to back up or move modes and voice settings to another PC. Old
-              <code class="text-brand-300">config.json</code> files are imported for you.
-            </p>
-          </div>
+          <dl class="reqs">
+            <div class="req"><dt>System</dt><dd>Windows 10 / 11, 64-bit</dd></div>
+            <div class="req"><dt>Disk</dt><dd>≈ 260 MB</dd></div>
+            <div class="req"><dt>Voice</dt><dd>Any microphone</dd></div>
+            <div class="req"><dt>Internet</dt><dd>Only for sites, search, music</dd></div>
+          </dl>
         </div>
+      </section>
+    </main>
+
+    <!-- ═════════════ FOOTER (ink, rounded top) ═════════════ -->
+    <footer>
+      <div class="wrap footer-top">
+        <div class="footer-brand">
+          <p class="footer-word">AutoH.</p>
+          <p class="footer-tag">Hotkeys and Thai voice commands for Windows.</p>
+        </div>
+        <nav class="footer-cols" aria-label="Footer">
+          <div class="footer-col">
+            <a href="#voice">Voice</a>
+            <a href="#modes">Modes</a>
+            <a href="#shortcuts">Shortcuts</a>
+          </div>
+          <div class="footer-col">
+            <a class="strong" href="https://github.com/khoffan/AutoH">GitHub</a>
+            <a href="https://github.com/khoffan/AutoH/releases/tag/autoh_v2.0.0">Release notes</a>
+            <a href="#download">Download</a>
+          </div>
+        </nav>
       </div>
-    </section>
-
-    <!-- ═══════════════════════════════ HOW IT WORKS ═══════════════════════════════ -->
-    <section id="how-it-works" class="relative py-28 sm:py-36">
-      <!-- Subtle background gradient -->
-      <div
-        class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-900/5 to-transparent"
-      ></div>
-
-      <div class="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Section Header -->
-        <div class="text-center mb-20 reveal">
-          <span
-            class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-cyan-400 bg-cyan-500/10 mb-4"
-            >How It Works</span
-          >
-          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
-            Up and running in <span class="gradient-text">three steps</span>
-          </h2>
-        </div>
-
-        <!-- Steps -->
-        <div class="space-y-16 sm:space-y-24">
-          <!-- Step 1 -->
-          <div class="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 reveal">
-            <div
-              class="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-brand-600/30"
-            >
-              1
-            </div>
-            <div>
-              <h3 class="text-2xl font-bold text-white mb-2">Download & Install</h3>
-              <p class="text-gray-400 text-lg leading-relaxed">
-                Unzip the download and run
-                <code class="text-brand-300 bg-brand-500/10 px-2 py-0.5 rounded">AutoH-Setup-2.0.0.exe</code>
-                — installs for your user only, no administrator rights needed. Upgrading from v1?
-                Your modes are carried over automatically.
-              </p>
-            </div>
-          </div>
-
-          <!-- Connector -->
-          <div
-            class="hidden sm:block w-0.5 h-8 mx-auto bg-gradient-to-b from-brand-500/40 to-cyan-500/40 rounded-full"
-          ></div>
-
-          <!-- Step 2 -->
-          <div class="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 reveal">
-            <div
-              class="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-600 to-cyan-500 flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-cyan-600/30"
-            >
-              2
-            </div>
-            <div>
-              <h3 class="text-2xl font-bold text-white mb-2">Configure Your Modes</h3>
-              <p class="text-gray-400 text-lg leading-relaxed">
-                The setup wizard walks you through creating your first mode — choose apps from your
-                system, assign a hotkey, and optionally add URLs.
-              </p>
-            </div>
-          </div>
-
-          <!-- Connector -->
-          <div
-            class="hidden sm:block w-0.5 h-8 mx-auto bg-gradient-to-b from-cyan-500/40 to-violet-500/40 rounded-full"
-          ></div>
-
-          <!-- Step 3 -->
-          <div class="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 reveal">
-            <div
-              class="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 to-violet-500 flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-violet-600/30"
-            >
-              3
-            </div>
-            <div>
-              <h3 class="text-2xl font-bold text-white mb-2">Press Your Hotkey — or Say It</h3>
-              <p class="text-gray-400 text-lg leading-relaxed">
-                Hit your custom shortcut and watch all your apps and websites spring to life
-                instantly. Or hold <span class="kbd">Ctrl+Alt+V</span>, say "เปิดไลน์", and let go.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════ VOICE ═══════════════════════════════ -->
-    <section id="voice" class="relative py-28 sm:py-36">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Section Header -->
-        <div class="text-center mb-16 reveal">
-          <span
-            class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-amber-400 bg-amber-500/10 mb-4"
-            >Voice Commands · New in v2.0</span
-          >
-          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
-            Just <span class="gradient-text">say what you need</span>
-          </h2>
-          <p class="mt-4 text-gray-400 max-w-xl mx-auto">
-            Hold <span class="kbd">Ctrl+Alt+V</span>, speak, release. No setup needed — AutoH
-            already knows your installed apps.
-          </p>
-        </div>
-
-        <!-- Example commands -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 reveal">
-          <div class="glass rounded-xl p-5">
-            <p class="text-lg font-semibold text-white">"เปิดไลน์"</p>
-            <p class="text-sm text-gray-500 mt-1">Open an app — or bring it to the front</p>
-          </div>
-          <div class="glass rounded-xl p-5">
-            <p class="text-lg font-semibold text-white">"เปิดเพลง ขี้หึง ซิลลี่ฟูลส์"</p>
-            <p class="text-sm text-gray-500 mt-1">Play the first matching video on YouTube</p>
-          </div>
-          <div class="glass rounded-xl p-5">
-            <p class="text-lg font-semibold text-white">"ค้นหาราคาทอง"</p>
-            <p class="text-sm text-gray-500 mt-1">Search the web</p>
-          </div>
-          <div class="glass rounded-xl p-5">
-            <p class="text-lg font-semibold text-white">"เปิดยูทูบ" · "เปิดเว็บ GitHub"</p>
-            <p class="text-sm text-gray-500 mt-1">Open a website</p>
-          </div>
-          <div class="glass rounded-xl p-5">
-            <p class="text-lg font-semibold text-white">"เปิดโฟลเดอร์ดาวน์โหลด"</p>
-            <p class="text-sm text-gray-500 mt-1">Open Desktop, Documents, Downloads, Pictures…</p>
-          </div>
-          <div class="glass rounded-xl p-5">
-            <p class="text-lg font-semibold text-white">"ตั้งค่าไวไฟ" · "ตั้งค่าบลูทูธ"</p>
-            <p class="text-sm text-gray-500 mt-1">Jump to a Windows Settings page</p>
-          </div>
-          <div class="glass rounded-xl p-5">
-            <p class="text-lg font-semibold text-white">"เข้าโหมด work"</p>
-            <p class="text-sm text-gray-500 mt-1">Run one of your saved modes</p>
-          </div>
-          <div class="glass rounded-xl p-5">
-            <p class="text-lg font-semibold text-white">"open chrome"</p>
-            <p class="text-sm text-gray-500 mt-1">English works too</p>
-          </div>
-        </div>
-
-        <!-- Safety notes -->
-        <div class="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm reveal">
-          <div class="glass rounded-xl p-5">
-            <p class="font-semibold text-white mb-1">🔒 Private by design</p>
-            <p class="text-gray-400">Speech is turned into text on your PC. Audio is never saved or uploaded.</p>
-          </div>
-          <div class="glass rounded-xl p-5">
-            <p class="font-semibold text-white mb-1">✋ Asks when unsure</p>
-            <p class="text-gray-400">Unclear names need a confirmation. No answer within 8 seconds means cancel.</p>
-          </div>
-          <div class="glass rounded-xl p-5">
-            <p class="font-semibold text-white mb-1">🧠 Learns your words</p>
-            <p class="text-gray-400">Pick the right app once and AutoH remembers it next time.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════ SHORTCUTS ═══════════════════════════════ -->
-    <section id="shortcuts" class="relative py-28 sm:py-36">
-      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Section Header -->
-        <div class="text-center mb-16 reveal">
-          <span
-            class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-violet-400 bg-violet-500/10 mb-4"
-            >Keyboard Shortcuts</span
-          >
-          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
-            Built-in <span class="gradient-text">system controls</span>
-          </h2>
-          <p class="mt-4 text-gray-400 max-w-xl mx-auto">
-            Master AutoH with these default keyboard shortcuts. Custom mode hotkeys are fully
-            configurable.
-          </p>
-        </div>
-
-        <!-- Shortcuts Grid -->
-        <div class="grid gap-4 reveal">
-          <!-- Shortcut Row 1 -->
-          <div
-            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group"
-          >
-            <div class="flex items-center gap-4">
-              <div
-                class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-lg group-hover:scale-110 transition-transform"
-              >
-                ▶
-              </div>
-              <div>
-                <p class="font-semibold text-white">Start / Restart System</p>
-                <p class="text-sm text-gray-500">Reset and reactivate the hotkey listener</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-1">
-              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
-              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
-              ><span class="kbd">S</span>
-            </div>
-          </div>
-
-          <!-- Shortcut Row 2 -->
-          <div
-            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group"
-          >
-            <div class="flex items-center gap-4">
-              <div
-                class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400 text-lg group-hover:scale-110 transition-transform"
-              >
-                ⏹
-              </div>
-              <div>
-                <p class="font-semibold text-white">Stop / Quit</p>
-                <p class="text-sm text-gray-500">Shut down AutoH — it keeps running until you do</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-1">
-              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
-              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
-              ><span class="kbd">Q</span>
-            </div>
-          </div>
-
-          <!-- Shortcut Row 3 -->
-          <div
-            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group"
-          >
-            <div class="flex items-center gap-4">
-              <div
-                class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 text-lg group-hover:scale-110 transition-transform"
-              >
-                ⏸
-              </div>
-              <div>
-                <p class="font-semibold text-white">Pause / Resume</p>
-                <p class="text-sm text-gray-500">Toggle the hotkey system on or off</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-1">
-              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
-              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
-              ><span class="kbd">P</span>
-            </div>
-          </div>
-
-          <!-- Shortcut Row 4 -->
-          <div
-            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group"
-          >
-            <div class="flex items-center gap-4">
-              <div
-                class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 text-lg group-hover:scale-110 transition-transform"
-              >
-                ℹ
-              </div>
-              <div>
-                <p class="font-semibold text-white">Show Status</p>
-                <p class="text-sm text-gray-500">System state, uptime and voice status</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-1">
-              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
-              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
-              ><span class="kbd">I</span>
-            </div>
-          </div>
-
-          <!-- Shortcut Row: configure -->
-          <div
-            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group"
-          >
-            <div class="flex items-center gap-4">
-              <div
-                class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 text-lg group-hover:scale-110 transition-transform"
-              >
-                ⚙
-              </div>
-              <div>
-                <p class="font-semibold text-white">Mode Manager</p>
-                <p class="text-sm text-gray-500">Edit modes, Import / Export, Voice Settings</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-1">
-              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
-              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
-              ><span class="kbd">E</span>
-            </div>
-          </div>
-
-          <!-- Shortcut Row: voice -->
-          <div
-            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group"
-          >
-            <div class="flex items-center gap-4">
-              <div
-                class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 text-lg group-hover:scale-110 transition-transform"
-              >
-                🎙
-              </div>
-              <div>
-                <p class="font-semibold text-white">Voice Command <span class="text-xs text-gray-500 font-normal">(hold)</span></p>
-                <p class="text-sm text-gray-500">Hold, speak, release — key can be changed</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-1">
-              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
-              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
-              ><span class="kbd">V</span>
-            </div>
-          </div>
-
-          <!-- Shortcut Row 5 (Custom) -->
-          <div
-            class="glass rounded-xl p-5 flex items-center justify-between hover:bg-white/5 transition-colors group border-brand-500/20"
-          >
-            <div class="flex items-center gap-4">
-              <div
-                class="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-400 text-lg group-hover:scale-110 transition-transform"
-              >
-                ⚡
-              </div>
-              <div>
-                <p class="font-semibold text-white">Launch Mode</p>
-                <p class="text-sm text-gray-500">Your custom modes — fully configurable!</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-1">
-              <span class="kbd">Ctrl</span><span class="text-gray-600">+</span
-              ><span class="kbd">Alt</span><span class="text-gray-600">+</span
-              ><span class="kbd text-brand-300 border-brand-500/30 bg-brand-500/10">?</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════ DOWNLOAD ═══════════════════════════════ -->
-    <section id="download" class="relative py-28 sm:py-36 overflow-hidden">
-      <!-- Background glow -->
-      <div
-        class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-900/10 to-transparent"
-      ></div>
-      <div
-        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-brand-600/5 blur-3xl"
-      ></div>
-
-      <div class="relative max-w-3xl mx-auto px-4 sm:px-6 text-center">
-        <div class="reveal">
-          <span
-            class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase text-emerald-400 bg-emerald-500/10 mb-4"
-            >Free Download</span
-          >
-          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
-            Ready to <span class="gradient-text">supercharge</span> your workflow?
-          </h2>
-          <p class="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
-            Download AutoH v2.0.0 for free. Hotkeys and offline voice commands in one installer —
-            no administrator rights needed.
-          </p>
-
-          <!-- Download Button -->
-          <a
-            href="https://github.com/khoffan/AutoH/releases/download/autoh_v2.0.0/AutoH-Setup-2.0.0-window-version-64.zip"
-            download="AutoH-Setup-2.0.0-window-version-64.zip"
-            id="download-btn"
-            class="btn-download inline-flex items-center gap-3 px-10 py-5 rounded-2xl bg-gradient-to-r from-brand-600 to-cyan-600 hover:from-brand-500 hover:to-cyan-500 text-white font-bold text-xl shadow-2xl shadow-brand-600/20 transition-all hover:scale-105 active:scale-95 animate-glow"
-          >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"
-              />
-            </svg>
-            Download AutoH v2.0.0
-          </a>
-          <p class="mt-4 text-sm text-gray-500">
-            Windows SmartScreen may warn because the app is not code-signed yet — click
-            <span class="text-gray-300">More info → Run anyway</span>.
-          </p>
-
-          <!-- Requirements -->
-          <div class="mt-12 glass rounded-2xl p-6 inline-block text-left">
-            <h4 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
-              System Requirements
-            </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div class="flex items-center gap-2 text-gray-400">
-                <svg
-                  class="w-4 h-4 text-emerald-400 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                Windows 10 / 11, 64-bit
-              </div>
-              <div class="flex items-center gap-2 text-gray-400">
-                <svg
-                  class="w-4 h-4 text-emerald-400 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                Microphone (for voice commands)
-              </div>
-              <div class="flex items-center gap-2 text-gray-400">
-                <svg
-                  class="w-4 h-4 text-emerald-400 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                ~260 MB disk (incl. 138 MB speech model)
-              </div>
-              <div class="flex items-center gap-2 text-gray-400">
-                <svg
-                  class="w-4 h-4 text-emerald-400 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                100% Free & Open Source
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════ FOOTER ═══════════════════════════════ -->
-    <footer class="border-t border-white/5 py-12">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
-          <!-- Logo -->
-          <div class="flex items-center gap-2">
-            <div
-              class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs"
-            >
-              AH
-            </div>
-            <span class="text-lg font-bold text-white"
-              >Auto<span class="text-brand-400">H</span></span
-            >
-          </div>
-
-          <!-- Links -->
-          <div class="flex items-center gap-6 text-sm text-gray-500">
-            <a href="#features" class="hover:text-gray-300 transition-colors">Features</a>
-            <a href="#how-it-works" class="hover:text-gray-300 transition-colors">How It Works</a>
-            <a href="#voice" class="hover:text-gray-300 transition-colors">Voice</a>
-            <a href="https://github.com/khoffan/AutoH" class="hover:text-gray-300 transition-colors"
-              >GitHub</a
-            >
-          </div>
-
-          <!-- Copyright -->
-          <p class="text-sm text-gray-600">&copy; 2026 AutoH. All rights reserved.</p>
-        </div>
+      <div class="wrap footer-bottom">
+        <p>© 2026 AutoH · MIT License</p>
+        <p>Speech recognition: Typhoon ASR Real-Time (CC BY 4.0)</p>
       </div>
     </footer>
 
-    <!-- ═══════════════════════════════ SCRIPTS ═══════════════════════════════ -->
     <script>
-      // Mobile menu toggle
-      const menuToggle = document.getElementById("menu-toggle");
-      const mobileMenu = document.getElementById("mobile-menu");
-      menuToggle.addEventListener("click", () => {
-        mobileMenu.classList.toggle("open");
-      });
+      // Voice console demo: example buttons swap the heard text, result and waveform.
+      (function () {
+        const examples = [
+          { heard: "เปิดไลน์", result: "Opened LINE", note: "Already running? Its window comes to the front." },
+          { heard: "เปิดเพลง ขี้หึง ซิลลี่ฟูลส์", result: "Playing on YouTube", note: "Opens the first matching video, which starts playing." },
+          { heard: "ค้นหาราคาทอง", result: "Searching Google for “ราคาทอง”", note: "Opens in your default browser." },
+          { heard: "ตั้งค่าไวไฟ", result: "Opened Settings › Wi-Fi", note: "Wi-Fi, Bluetooth, sound, display, updates and more." },
+          { heard: "open chrome", result: "Opened Google Chrome", note: "Thai, English or a mix of both." },
+        ];
+        const wave = document.getElementById("wave");
+        const heard = document.getElementById("heard");
+        const result = document.getElementById("result");
+        const note = document.getElementById("note");
+        const buttons = document.querySelectorAll("#examples-seg button");
+        const BARS = 40;
 
-      // Close mobile menu on link click
-      mobileMenu.querySelectorAll("a").forEach((link) => {
-        link.addEventListener("click", () => {
-          mobileMenu.classList.remove("open");
-        });
-      });
+        for (let i = 0; i < BARS; i++) wave.appendChild(document.createElement("span"));
 
-      // Scroll reveal animation
-      const revealElements = document.querySelectorAll(".reveal");
-      const revealObserver = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              entry.target.classList.add("active");
-              revealObserver.unobserve(entry.target);
-            }
+        function drawWave(seed) {
+          wave.querySelectorAll("span").forEach((bar, i) => {
+            const v = Math.abs(Math.sin((i + seed) * 0.5) * Math.cos(i * seed * 0.11));
+            bar.style.height = Math.round(8 + v * 64) + "px";
+            bar.style.opacity = (0.35 + v * 0.65).toFixed(2);
           });
-        },
-        {
-          threshold: 0.15,
-          rootMargin: "0px 0px -50px 0px",
-        },
-      );
-
-      revealElements.forEach((el) => revealObserver.observe(el));
-
-      // Navbar background on scroll
-      const nav = document.querySelector("nav");
-      window.addEventListener("scroll", () => {
-        if (window.scrollY > 50) {
-          nav.classList.add("shadow-lg", "shadow-black/20");
-        } else {
-          nav.classList.remove("shadow-lg", "shadow-black/20");
         }
-      });
+
+        function pick(index) {
+          const ex = examples[index];
+          heard.textContent = "“" + ex.heard + "”";
+          heard.lang = /[฀-๿]/.test(ex.heard) ? "th" : "en";
+          result.textContent = ex.result;
+          note.textContent = ex.note;
+          buttons.forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.i) === index)));
+          drawWave(ex.heard.length);
+        }
+
+        buttons.forEach((b) => b.addEventListener("click", () => pick(Number(b.dataset.i))));
+        pick(0);
+      })();
     </script>
   </body>
 </html>
