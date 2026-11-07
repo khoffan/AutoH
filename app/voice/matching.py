@@ -6,7 +6,8 @@ from difflib import SequenceMatcher
 
 # Polite/filler endings removed from the end of a command, longest first.
 _TRAILING_FILLERS = sorted(
-    ["ให้หน่อย", "หน่อย", "ด้วย", "ให้ที", "ครับ", "คับ", "ค่ะ", "คะ", "นะ", "จ้า", "please"],
+    ["ให้หน่อย", "หน่อย", "ด้วย", "ให้ที", "ให้", "ครับ", "คับ", "ค่ะ", "คะ", "นะ", "น่ะ", "จ้า",
+     "please"],
     key=len,
     reverse=True,
 )
@@ -51,6 +52,15 @@ _THAI_SOUNDS = {
     "n": "ณน", "p": "บปผพภ", "f": "ฝฟ", "m": "ม", "r": "รลฬฤฦ", "w": "ว",
 }
 _THAI_MAP = {ch: key for key, chars in _THAI_SOUNDS.items() for ch in chars}
+# A consonant ending a Thai word is pronounced as one of few final sounds:
+# คลอส / คลอด / คลอต all end in /t/, so "คลอส" must match Claude (krt).
+_THAI_FINALS = {
+    "k": "กขฃคฅฆ", "t": "จฉชซฌฎฏฐฑฒดตถทธศษส", "p": "บปผพภฝฟ",
+    "n": "ญณนรลฬ", "m": "ม", "N": "ง", "y": "ย", "w": "ว",
+}
+_THAI_FINAL_MAP = {ch: key for key, chars in _THAI_FINALS.items() for ch in chars}
+_THAI_TONES = "่้๊๋"
+_EN_FINALS = {"s": "t", "c": "t", "f": "p"}   # same idea for the last sound of an English word
 _THAI_CHARS = re.compile(r"[฀-๿]")
 _THAI_SILENT = re.compile(r"[ก-ฮ][ะ-ฺ็-๋]*์")  # letter + ์
 _EN_RULES = [  # applied in order, on lowercase latin text
@@ -69,9 +79,16 @@ def phonetic_key(text: str) -> str:
         if word[0] <= "z":
             for pattern, repl in _EN_RULES:
                 word = re.sub(pattern, repl, word)
+            word = re.sub(r"(.)\1+", r"\1", word)   # "compass" -> kmps before the final
+            if word and word[-1] in _EN_FINALS:
+                word = word[:-1] + _EN_FINALS[word[-1]]
             out.append(word)
         else:
-            out.append("".join(_THAI_MAP.get(ch, "") for ch in word))
+            keys = [_THAI_MAP.get(ch, "") for ch in word]
+            stem = word.rstrip(_THAI_TONES)
+            if stem and stem[-1] in _THAI_FINAL_MAP and len(stem) > 1:   # ends in a consonant
+                keys[len(stem) - 1] = _THAI_FINAL_MAP[stem[-1]]
+            out.append("".join(keys))
     return re.sub(r"(.)\1+", r"\1", "".join(out))  # collapse doubles: kk -> k
 
 

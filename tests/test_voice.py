@@ -114,6 +114,10 @@ class ResolveTest(unittest.TestCase):
             ("เปิดยูทูป", "open_url", "youtube"),
             ("เปิดเว็บกิตทับ", "open_url", "github"),
             ("เข้าโหมดเวิร์ค", "run_mode", "work"),
+            # Manual test 2026-11-08: Thai final consonants (ส = /t/) and "ให้" filler
+            ("เปิดคลอสให้หน่อย", "open_url", "claude"),
+            ("เปิดเว็บคลอสให้หน่อย", "open_url", "claude"),
+            ("เปิดไลน์น่ะ", "open_app", "LINE"),
         ]
         for text, name, target in cases:
             with self.subTest(text=text):
