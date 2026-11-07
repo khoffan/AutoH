@@ -5,9 +5,10 @@
     venv\\Scripts\\python.exe scripts\\voice_repl.py --db       # use autoh.db (modes, aliases, app index)
     venv\\Scripts\\python.exe scripts\\voice_repl.py --mic --dry-run   # Enter = talk, Enter = stop
 
-Without --db nothing is written to disk: apps are scanned live, aliases are the
-defaults, and modes are empty. --db opens the real database, which migrates
-config.json next to the project root on first run (renamed to config.json.bak).
+Without --db, modes are empty, aliases are the defaults and learned aliases are
+kept for the session only. Real (non --dry-run) launches still write a log line,
+which opens the real database. Only --dry-run touches nothing on disk. The real
+database migrates config.json from the project root on first use (-> .bak).
 """
 import argparse
 import time

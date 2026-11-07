@@ -9,12 +9,13 @@ from ui.theme import APP_THEME, PADDING, WINDOW_SIZES, fit_and_center_window
 
 @dataclass
 class StatusSnapshot:
-    runtime: int
     start_time: float
     system_active: bool
     system_paused: bool
     already_opened: bool
     modes: dict[str, dict]
+    voice: str = "off"          # e.g. "ready (hold Ctrl+Alt+V)" or why it is off
+    voice_hotkey: str = ""
 
 
 class StatusWindow(ctk.CTkToplevel):
@@ -120,20 +121,24 @@ class StatusWindow(ctk.CTkToplevel):
         self.update_snapshot(snapshot, message)
 
     def update_snapshot(self, snapshot: StatusSnapshot, message=""):
-        remaining = max(0, int(snapshot.runtime - (time.time() - snapshot.start_time)))
-        minutes, seconds = divmod(remaining, 60)
+        uptime = int(time.time() - snapshot.start_time)
+        hours, rest = divmod(uptime, 3600)
+        minutes = rest // 60
         status_text = (
             f"Active: {snapshot.system_active}\n"
             f"Paused: {snapshot.system_paused}\n"
             f"Opened: {snapshot.already_opened}\n"
-            f"Time Left: {minutes} min {seconds} sec\n"
+            f"Uptime: {hours} h {minutes} min\n"
+            f"Voice: {snapshot.voice}\n"
             f"Saved Modes: {len(snapshot.modes)}"
         )
         hotkeys = [
             f"{name}: {settings.get('hotkey', '-')}"
             for name, settings in sorted(snapshot.modes.items())
         ]
-        hotkeys_text = "System Hotkeys:\nCtrl+Alt+S reset\nCtrl+Alt+P pause\nCtrl+Alt+Q shutdown\nCtrl+Alt+E configure\nCtrl+Alt+I status"
+        hotkeys_text = "System Hotkeys:\nCtrl+Alt+S reset\nCtrl+Alt+P pause\nCtrl+Alt+Q quit\nCtrl+Alt+E configure\nCtrl+Alt+I status"
+        if snapshot.voice_hotkey:
+            hotkeys_text += f"\n{snapshot.voice_hotkey.title()} (hold) voice command"
         if hotkeys:
             hotkeys_text += "\n\nMode Hotkeys:\n" + "\n".join(hotkeys)
 

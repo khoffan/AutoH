@@ -13,9 +13,11 @@ from core.logger import write_log
 from ui.selected_app import get_user_configuration
 from ui.status import StatusSnapshot, show_status_window
 from ui.theme import APP_THEME
+from ui.voice_dialogs import Toast, ask_confirm, ask_pick
+from voice.controller import VoiceAssistant, VoiceUI
 
-RUN_TIME = 20 * 60
 DEBOUNCE_SECOND = 2
+VOICE_KEY_POLL_MS = 50
 
 
 @dataclass
@@ -42,12 +44,21 @@ class AutoHController(ctk.CTk):
         self.status_window = None
         self.mode_hotkey_ids = []
         self.modes = {}
+        self.toast = None
+        self.voice = VoiceAssistant(VoiceUI(
+            ui_call=self.request_task,
+            show=self.show_voice_message,
+            confirm=lambda question: ask_confirm(self, question),
+            pick=lambda heard, options: ask_pick(self, heard, options) if options else None,
+            run_mode=self.voice_run_mode,
+        ))
+        self.voice_hotkey = VoiceAssistant.hotkey()
 
         self.protocol("WM_DELETE_WINDOW", self.stop_system)
         self.reload_modes()
+        self.voice.start()
         self.register_static_hotkeys()
         self.after(100, self.process_tasks)
-        self.after(1000, self.check_runtime)
 
     def run(self):
         write_log("System started")
@@ -75,22 +86,46 @@ class AutoHController(ctk.CTk):
 
         self.after(100, self.process_tasks)
 
-    def check_runtime(self):
-        if self.runtime.shutdown_requested:
-            return
-
-        if time.time() - self.runtime.start_time > RUN_TIME:
-            write_log("Auto shutdown triggered")
-            self.show_status_ui("Runtime reached the automatic shutdown limit.")
-            self.stop_system()
-            return
-
-        self.after(1000, self.check_runtime)
-
     def reload_modes(self):
         config = load_config(default={"modes": {}}, exit_on_missing=False)
         self.modes = config.get("modes", {})
         self.register_mode_hotkeys()
+        self.voice.reload(self.modes)
+
+    # ------------------------------------------------------------ voice
+
+    def show_voice_message(self, text, hide_after_ms=3500):
+        if self.toast is None or not self.toast.winfo_exists():
+            self.toast = Toast(self)
+        self.toast.show(text, hide_after_ms)
+
+    def voice_press(self):
+        if self.runtime.system_paused:
+            self.show_voice_message("ระบบหยุดชั่วคราว (Ctrl+Alt+P เพื่อเปิด)", 2500)
+            return
+        if self.voice.begin():
+            self.after(VOICE_KEY_POLL_MS, self._poll_voice_key)
+
+    def _poll_voice_key(self):
+        """Key repeat makes the hotkey fire many times, so release is detected by polling."""
+        if self.runtime.shutdown_requested:
+            return
+        try:
+            held = keyboard.is_pressed(self.voice_hotkey)
+        except Exception:
+            held = False
+        if held:
+            self.after(VOICE_KEY_POLL_MS, self._poll_voice_key)
+        else:
+            self.voice.end()
+
+    def voice_run_mode(self, mode_name):
+        """`run_mode` from voice keeps the open-once rule of mode hotkeys."""
+        if self.runtime.already_opened:
+            raise RuntimeError("เปิด mode ไปแล้ว กด Ctrl+Alt+S เพื่อ reset ก่อน")
+        if not self.runtime.system_active:
+            raise RuntimeError("ระบบไม่พร้อม")
+        self.launch_apps_mode(mode_name)
 
     def register_static_hotkeys(self):
         keyboard.add_hotkey("ctrl+alt+s", lambda: self.request_task(self.start_system))
@@ -100,6 +135,11 @@ class AutoHController(ctk.CTk):
         keyboard.add_hotkey(
             "ctrl+alt+i", lambda: self.request_task(self.show_status_ui, "System state overview")
         )
+        try:
+            keyboard.add_hotkey(self.voice_hotkey, lambda: self.request_task(self.voice_press))
+        except ValueError as exc:
+            write_log(f"Invalid voice hotkey '{self.voice_hotkey}': {exc}", "WARN")
+            self.voice_hotkey = ""
 
     def register_mode_hotkeys(self):
         for hotkey_id in self.mode_hotkey_ids:
@@ -127,12 +167,13 @@ class AutoHController(ctk.CTk):
 
     def build_status_snapshot(self):
         return StatusSnapshot(
-            runtime=RUN_TIME,
             start_time=self.runtime.start_time,
             system_active=self.runtime.system_active,
             system_paused=self.runtime.system_paused,
             already_opened=self.runtime.already_opened,
             modes=self.modes,
+            voice=self.voice.status,
+            voice_hotkey=self.voice_hotkey if not self.voice.transcriber.error else "",
         )
 
     def show_status_ui(self, message="System state overview"):
@@ -158,6 +199,7 @@ class AutoHController(ctk.CTk):
     def on_modes_changed(self, modes, message):
         self.modes = modes
         self.register_mode_hotkeys()
+        self.voice.reload(modes)
         write_log(message)
         self.show_status_ui(message)
 
@@ -202,10 +244,11 @@ class AutoHController(ctk.CTk):
         except Exception as exc:
             write_log(f"Hotkey cleanup error: {exc}")
 
-        if self.config_window is not None and self.config_window.winfo_exists():
-            self.config_window.destroy()
-        if self.status_window is not None and self.status_window.winfo_exists():
-            self.status_window.destroy()
+        if self.voice.recorder.is_recording:
+            self.voice.recorder.stop()
+        for window in (self.config_window, self.status_window, self.toast):
+            if window is not None and window.winfo_exists():
+                window.destroy()
 
         self.quit()
         self.destroy()
