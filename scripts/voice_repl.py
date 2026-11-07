@@ -1,0 +1,87 @@
+"""Manual test for voice commands: type a command instead of speaking.
+
+    venv\\Scripts\\python.exe scripts\\voice_repl.py            # real actions, no DB
+    venv\\Scripts\\python.exe scripts\\voice_repl.py --dry-run  # show only, open nothing
+    venv\\Scripts\\python.exe scripts\\voice_repl.py --db       # use autoh.db (modes, aliases, app index)
+
+Without --db nothing is written to disk: apps are scanned live, aliases are the
+defaults, and modes are empty. --db opens the real database, which migrates
+config.json next to the project root on first run (renamed to config.json.bak).
+"""
+import argparse
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app"))
+
+from voice.actions import ActionContext  # noqa: E402
+from voice.pipeline import execute, interpret  # noqa: E402
+
+
+def build_context(use_db: bool, dry_run: bool) -> ActionContext:
+    if use_db:
+        from config import database
+        from config.load_config import load_config
+        from voice import app_index
+
+        modes = load_config()["modes"]
+        apps = app_index.load(modes)
+        with database.connect() as conn:
+            aliases = database.read_aliases(conn)
+    else:
+        from config.database import DEFAULT_ALIASES
+        from voice.app_index import scan_apps
+
+        modes = {}
+        apps = {name: path for name, path, _ in scan_apps()}
+        aliases = dict(DEFAULT_ALIASES)
+
+    ctx = ActionContext(apps=apps, modes=modes, aliases=aliases)
+    ctx.run_mode = lambda name: print(f"   (run_mode '{name}' is wired in M4; not run here)")
+    if dry_run:
+        ctx.open_app = lambda path, name: print(f"   [dry-run] open app {name}: {path}")
+        ctx.open_url = lambda url: print(f"   [dry-run] open url {url}")
+    return ctx
+
+
+def confirm(question: str) -> bool:
+    return input(f"   ? {question} [y/N] ").strip().lower() in ("y", "yes", "ใช่")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--db", action="store_true", help="use the real autoh.db")
+    parser.add_argument("--dry-run", action="store_true", help="do not open anything")
+    opts = parser.parse_args()
+
+    for stream in (sys.stdin, sys.stdout):
+        stream.reconfigure(encoding="utf-8")
+
+    print("Scanning apps...")
+    ctx = build_context(opts.db, opts.dry_run)
+    print(f"{len(ctx.apps)} apps, {len(ctx.modes)} modes, {len(ctx.aliases)} aliases.")
+    print("Type a command (e.g. เปิดไลน์, เปิดยูทูบ, ค้นหาราคาทอง). ':apps' lists apps, empty line quits.\n")
+
+    while True:
+        try:
+            text = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if not text:
+            break
+        if text == ":apps":
+            print("\n".join(f"   {name}" for name in sorted(ctx.apps)))
+            continue
+
+        resolved, errors = interpret(text, ctx)
+        for message in errors:
+            print(f"   x {message}")
+        for item in resolved:
+            print(f"   -> {item.label} (score {item.score:.2f}"
+                  f"{', ต้องยืนยัน' if item.needs_confirm else ''})")
+        for item, result in execute(resolved, ctx, confirm):
+            print(f"   = {result}")
+
+
+if __name__ == "__main__":
+    main()

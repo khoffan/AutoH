@@ -16,7 +16,28 @@ from config.get_base_dir import get_base_dir, get_data_dir, get_user_data_dir
 DB_FILENAME = "autoh.db"
 LEGACY_CONFIG_FILENAME = "config.json"
 LOG_RETENTION_DAYS = 30
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+# Spoken words (often Thai transliterations) -> search term or site key.
+DEFAULT_ALIASES = {
+    "ไลน์": ("line", "app"),
+    "โครม": ("chrome", "app"),
+    "กูเกิลโครม": ("chrome", "app"),
+    "เอดจ์": ("edge", "app"),
+    "ไฟร์ฟอกซ์": ("firefox", "app"),
+    "วีเอสโค้ด": ("visual studio code", "app"),
+    "วิชวลสตูดิโอโค้ด": ("visual studio code", "app"),
+    "เวิร์ด": ("word", "app"),
+    "เอ็กเซล": ("excel", "app"),
+    "พาวเวอร์พอยต์": ("powerpoint", "app"),
+    "ดิสคอร์ด": ("discord", "app"),
+    "สปอติฟาย": ("spotify", "app"),
+    "ยูทูบ": ("youtube", "site"),
+    "เฟซบุ๊ก": ("facebook", "site"),
+    "เฟสบุ๊ค": ("facebook", "site"),
+    "จีเมล": ("gmail", "site"),
+    "กิตฮับ": ("github", "site"),
+}
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -42,6 +63,20 @@ CREATE TABLE IF NOT EXISTS logs (
     message TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_logs_ts ON logs(ts);
+CREATE TABLE IF NOT EXISTS app_index (
+    name   TEXT PRIMARY KEY,
+    path   TEXT NOT NULL,
+    source TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS aliases (
+    alias  TEXT PRIMARY KEY,
+    target TEXT NOT NULL,
+    kind   TEXT NOT NULL CHECK (kind IN ('app', 'site', 'mode'))
+);
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 _lock = threading.RLock()
@@ -64,6 +99,7 @@ def _get_memory_conn() -> sqlite3.Connection:
         _memory_conn = sqlite3.connect(":memory:", check_same_thread=False)
         _configure(_memory_conn)
         _memory_conn.executescript(_SCHEMA)
+        _upgrade_schema(_memory_conn)
     return _memory_conn
 
 
@@ -83,6 +119,7 @@ class _Connection:
                 conn.execute("PRAGMA journal_mode = WAL")
                 conn.executescript(_SCHEMA)
                 _migrate_legacy_json(conn)
+                _upgrade_schema(conn)
                 _prune_logs(conn)
                 conn.commit()
                 _initialized_paths.add(path)
@@ -219,7 +256,57 @@ def _migrate_legacy_json(conn: sqlite3.Connection) -> None:
     conn.execute(
         "INSERT OR REPLACE INTO meta (key, value) VALUES ('legacy_json_migrated', '1')"
     )
+
+
+def _upgrade_schema(conn: sqlite3.Connection) -> None:
+    """Bring an older DB up to SCHEMA_VERSION. Tables come from _SCHEMA (IF NOT EXISTS)."""
+    row = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
+    version = int(row[0]) if row and str(row[0]).isdigit() else 1
+
+    if version < 2:
+        conn.executemany(
+            "INSERT OR IGNORE INTO aliases (alias, target, kind) VALUES (?, ?, ?)",
+            [(alias, target, kind) for alias, (target, kind) in DEFAULT_ALIASES.items()],
+        )
+
+    if version != SCHEMA_VERSION:
+        conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)",
+            (str(SCHEMA_VERSION),),
+        )
+
+
+# ---------------------------------------------------------------- settings / aliases
+
+def get_setting(conn: sqlite3.Connection, key: str, default: str | None = None) -> str | None:
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return row[0] if row else default
+
+
+def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+
+
+def read_aliases(conn: sqlite3.Connection) -> dict:
+    """{alias: (target, kind)}"""
+    return {a: (t, k) for a, t, k in conn.execute("SELECT alias, target, kind FROM aliases")}
+
+
+def write_alias(conn: sqlite3.Connection, alias: str, target: str, kind: str) -> None:
     conn.execute(
-        "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)",
-        (str(SCHEMA_VERSION),),
+        "INSERT OR REPLACE INTO aliases (alias, target, kind) VALUES (?, ?, ?)",
+        (alias, target, kind),
+    )
+
+
+def read_app_index(conn: sqlite3.Connection) -> dict:
+    """{name: path}"""
+    return dict(conn.execute("SELECT name, path FROM app_index ORDER BY name"))
+
+
+def write_app_index(conn: sqlite3.Connection, apps: list[tuple[str, str, str]]) -> None:
+    """Replace the index with [(name, path, source), ...]."""
+    conn.execute("DELETE FROM app_index")
+    conn.executemany(
+        "INSERT OR REPLACE INTO app_index (name, path, source) VALUES (?, ?, ?)", apps
     )
