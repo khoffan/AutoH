@@ -9,14 +9,19 @@ import re
 from voice.actions import Action
 from voice.matching import normalize
 
+# Verb spellings include how Thai speech-to-text writes them: "open" -> โอเพ่น,
+# "search" -> เสิร์ช, "ค้นหา" misheard as คนหา/ข้นหา.
+_OPEN = r"เปิด|โอเพ่น|โอเพน|open|launch|start"
+_SEARCH = r"ค้นหา|คนหา|ข้นหา|ค้น|หา|เสิร์ช|เซิร์ช|เซิร์ฟ|search(?: for)?|google"
+_MODE = r"โหมด|โหมท|mode"
+
 # Order matters: more specific prefixes first.
 _RULES: list[tuple[re.Pattern, str, str]] = [
-    (re.compile(r"^(?:เข้า|เปิด|ใช้)?\s*(?:โหมด|mode)\s*(.+)$"), "run_mode", "name"),
-    (re.compile(r"^(?:ค้นหา|ค้น|หา|search(?: for)?|google)\s*(.+)$"), "web_search", "query"),
-    (re.compile(r"^(?:เปิดเว็บไซต์|เปิดเว็บ|ไปที่เว็บ|ไปที่|open website|go to)\s*(.+)$"),
+    (re.compile(rf"^(?:เข้า|{_OPEN}|ใช้)?\s*(?:{_MODE})\s*(.+)$"), "run_mode", "name"),
+    (re.compile(rf"^(?:{_SEARCH})\s*(.+)$"), "web_search", "query"),
+    (re.compile(rf"^(?:(?:{_OPEN})\s*(?:เว็บไซต์|เว็บ|website)|ไปที่เว็บ|ไปที่|go to)\s*(.+)$"),
      "open_url", "site"),
-    (re.compile(r"^(?:เปิดโปรแกรม|เปิดแอป|เปิดแอพ|เปิด|open|launch|start)\s*(.+)$"),
-     "open_app", "name"),
+    (re.compile(rf"^(?:(?:{_OPEN})\s*(?:โปรแกรม|แอป|แอพ)?)\s*(.+)$"), "open_app", "name"),
 ]
 
 

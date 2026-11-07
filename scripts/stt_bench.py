@@ -7,8 +7,11 @@ action? (not word error rate). See docs/plans/v2.0-voice-commands.md, M1.
     venv\\Scripts\\python.exe scripts\\stt_bench.py bench               # base + small
     venv\\Scripts\\python.exe scripts\\stt_bench.py bench --models tiny,base,small,medium
     venv\\Scripts\\python.exe scripts\\stt_bench.py bench --no-prompt   # without app-name hint
+    venv\\Scripts\\python.exe scripts\\stt_bench.py bench --models typhoon       # offline, models/typhoon-asr-realtime
+    $env:TYPHOON_API_KEY="..."; venv\\Scripts\\python.exe scripts\\stt_bench.py bench --models typhoon-api
 
-Models download from Hugging Face on first use (base ~150 MB, small ~500 MB).
+Whisper models download from Hugging Face on first use (base ~150 MB, small ~500 MB).
+"typhoon" needs the ONNX files in models/typhoon-asr-realtime/ (see SOURCE.txt there).
 Recordings are saved to bench/audio/ (git-ignored); delete them any time.
 """
 import argparse
@@ -141,9 +144,60 @@ def check(text, ctx, expected_action, expected_target):
     return ok, label
 
 
-def cmd_bench(models, use_prompt):
-    from faster_whisper import WhisperModel
+TYPHOON_URL = "https://api.opentyphoon.ai/v1/audio/transcriptions"
 
+
+class TyphoonAPI:
+    """Typhoon ASR hosted API (OpenAI-compatible). Key from TYPHOON_API_KEY; never stored."""
+
+    def __init__(self, model="typhoon-asr-realtime"):
+        self.key = os.environ.get("TYPHOON_API_KEY")
+        if not self.key:
+            sys.exit("Set TYPHOON_API_KEY first (free key from the Typhoon playground, see https://docs.opentyphoon.ai)")
+        self.model = model
+
+    def transcribe(self, path) -> str:
+        import json
+        import urllib.request
+        import uuid
+
+        boundary = uuid.uuid4().hex
+        with open(path, "rb") as f:
+            audio = f.read()
+        body = (
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n{self.model}\r\n"
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.wav\"\r\n"
+            f"Content-Type: audio/wav\r\n\r\n"
+        ).encode() + audio + f"\r\n--{boundary}--\r\n".encode()
+        request = urllib.request.Request(TYPHOON_URL, data=body, method="POST", headers={
+            "Authorization": f"Bearer {self.key}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        })
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response).get("text", "")
+
+
+TYPHOON_DIR = os.path.join(ROOT, "models", "typhoon-asr-realtime")
+
+
+class TyphoonLocal:
+    """Typhoon ASR Real-Time, offline via ONNX Runtime (pythaiasr's FastConformer RNN-T)."""
+
+    def __init__(self, model_dir=TYPHOON_DIR):
+        from pythaiasr.typhoon import FastConformerRNNT
+
+        self.model = FastConformerRNNT(
+            encoder_path=os.path.join(model_dir, "encoder-fastconformer-quran-ar.onnx"),
+            decoder_path=os.path.join(model_dir, "decoder_joint-fastconformer-quran-ar.onnx"),
+            vocab_path=os.path.join(model_dir, "vocab.json"),
+            device="cpu",
+        )
+
+    def transcribe(self, path) -> str:
+        return self.model.transcribe(load_audio(path))
+
+
+def cmd_bench(models, use_prompt):
     files = [(i, s) for i, s in enumerate(SENTENCES) if os.path.isfile(wav_path(i))]
     if not files:
         sys.exit("No recordings. Run: scripts\\stt_bench.py record")
@@ -156,17 +210,27 @@ def cmd_bench(models, use_prompt):
     for model_name in models:
         print(f"\n=== {model_name}  (loading, first time downloads) ===")
         t0 = time.perf_counter()
-        model = WhisperModel(model_name, device="cpu", compute_type="int8")
+        if model_name == "typhoon-api":
+            model = TyphoonAPI()
+        elif model_name == "typhoon":
+            model = TyphoonLocal()
+        else:
+            from faster_whisper import WhisperModel
+
+            model = WhisperModel(model_name, device="cpu", compute_type="int8")
         load_s = time.perf_counter() - t0
 
         passed, times = 0, []
         for i, (sentence, exp_action, exp_target) in files:
             t0 = time.perf_counter()
-            segments, _ = model.transcribe(
-                load_audio(wav_path(i)), language="th", beam_size=5, initial_prompt=prompt,
-                vad_filter=True, condition_on_previous_text=False,
-            )
-            text = "".join(seg.text for seg in segments).strip()
+            if isinstance(model, (TyphoonAPI, TyphoonLocal)):
+                text = model.transcribe(wav_path(i)).strip()
+            else:
+                segments, _ = model.transcribe(
+                    load_audio(wav_path(i)), language="th", beam_size=5, initial_prompt=prompt,
+                    vad_filter=True, condition_on_previous_text=False,
+                )
+                text = "".join(seg.text for seg in segments).strip()
             elapsed = time.perf_counter() - t0
             times.append(elapsed)
             ok, detail = check(text, ctx, exp_action, exp_target)

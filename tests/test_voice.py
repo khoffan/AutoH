@@ -97,6 +97,40 @@ class ResolveTest(unittest.TestCase):
         self.check("เปิด crome", "open_app", "name", "Google Chrome", confirm=True)
         self.check("เปิด compas", "open_app", "name", "MongoDB Compass", confirm=True)
 
+    def test_typhoon_transcripts(self):
+        """Real Typhoon ASR outputs from the M1 benchmark: English names spelled in Thai."""
+        self.ctx.apps.update({
+            "Docker Desktop": "C:/docker.exe", "Canva": "C:/canva.exe",
+            "Microsoft Edge": "C:/edge.exe", "WinRAR 7.13 (64-bit)": "C:/winrar.exe",
+        })
+        cases = [
+            ("เปิดโครม", "open_app", "Google Chrome"),
+            ("เปิด มงโกดีบี คอมพาส", "open_app", "MongoDB Compass"),
+            ("เปิด ด็อกเกอร์ Distop", "open_app", "Docker Desktop"),
+            ("เปิดแขนว่า", "open_app", "Canva"),
+            ("เปิดไมโครซอฟเอด", "open_app", "Microsoft Edge"),
+            ("เปิดวินรา", "open_app", "WinRAR 7.13 (64-bit)"),
+            ("โอเพ่นโครม", "open_app", "Google Chrome"),
+            ("เปิดยูทูป", "open_url", "youtube"),
+            ("เปิดเว็บกิตทับ", "open_url", "github"),
+            ("เข้าโหมดเวิร์ค", "run_mode", "work"),
+        ]
+        for text, name, target in cases:
+            with self.subTest(text=text):
+                resolved, errors = interpret(text, self.ctx)
+                self.assertEqual(errors, [])
+                self.assertEqual(resolved[0].action.name, name)
+                self.assertIn(target, (resolved[0].action.args.get("name"),
+                                       resolved[0].action.args.get("site")))
+        for text in ("คนหาร้านกาแฟใกล้ฉัน", "เสิร์ช ไพทอน"):
+            with self.subTest(text=text):
+                self.assertEqual(interpret(text, self.ctx)[0][0].action.name, "web_search")
+
+    def test_phonetic_does_not_overmatch(self):
+        for text in ("เปิดร้าย", "เปิด photoshop", "เปิดราคาทอง"):
+            with self.subTest(text=text):
+                self.assertEqual(interpret(text, self.ctx)[0], [])
+
     def test_unknown(self):
         resolved, errors = interpret("เปิด photoshop", self.ctx)
         self.assertEqual(resolved, [])

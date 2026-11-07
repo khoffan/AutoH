@@ -40,3 +40,6 @@ Desktop.ini
 
 # Voice benchmark recordings (scripts/stt_bench.py)
 bench/
+
+# Speech models (download separately, see models/*/SOURCE.txt)
+models/
