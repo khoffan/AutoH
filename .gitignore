@@ -19,6 +19,9 @@ dist/
 build/
 *.spec
 *.iss
+# ...except the maintained build files (scripts/build.py uses them)
+!installer/AutoH.spec
+!installer/AutoH.iss
 ouput/
 output/
 installer-output/

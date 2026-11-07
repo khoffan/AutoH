@@ -1,0 +1,27 @@
+AutoH - third-party notices
+===========================
+
+Voice commands run fully offline on this computer. No audio is sent anywhere.
+
+Speech recognition model
+------------------------
+Typhoon ASR Real-Time (typhoon-ai/typhoon-asr-realtime)
+  by Typhoon (SCB 10X), licensed CC BY 4.0
+  https://huggingface.co/typhoon-ai/typhoon-asr-realtime
+  https://creativecommons.org/licenses/by/4.0/
+ONNX export: wannaphong/typhoon-asr-realtime-onnx (CC BY 4.0)
+Changes made for AutoH: weights quantized to int8 with ONNX Runtime
+(dynamic quantization) to reduce size from 483 MB to 138 MB.
+Use is also subject to the OpenTyphoon terms: https://opentyphoon.ai
+
+Libraries
+---------
+pythaiasr        Apache License 2.0   https://github.com/PyThaiNLP/pythaiasr
+onnxruntime      MIT                  https://github.com/microsoft/onnxruntime
+numpy            BSD-3-Clause         https://numpy.org
+sounddevice      MIT                  https://github.com/spatialaudio/python-sounddevice
+PortAudio        MIT-style            https://www.portaudio.com
+customtkinter    CC0 1.0              https://github.com/TomSchimansky/CustomTkinter
+keyboard         MIT                  https://github.com/boppreh/keyboard
+psutil           BSD-3-Clause         https://github.com/giampaolo/psutil
+Python           PSF License          https://www.python.org

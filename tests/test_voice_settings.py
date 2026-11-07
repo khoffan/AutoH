@@ -64,7 +64,8 @@ class ImportExportTest(TempDB):
         out = os.path.join(self.tmp, "export.json")
         load_config.export_config(out)
 
-        data = json.load(open(out, encoding="utf-8"))
+        with open(out, encoding="utf-8") as f:
+            data = json.load(f)
         self.assertIn("work", data["modes"])
         self.assertEqual(data["voice"]["aliases"]["ร้าย"], {"target": "LINE", "kind": "app"})
         self.assertEqual(data["voice"]["settings"], {"voice_hotkey": "ctrl+shift+space"})
@@ -75,7 +76,8 @@ class ImportExportTest(TempDB):
 
     def test_old_files_without_voice_still_import(self):
         path = os.path.join(self.tmp, "old.json")
-        json.dump({"modes": {"work": {"hotkey": "ctrl+alt+t", "apps": {}}}}, open(path, "w", encoding="utf-8"))
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"modes": {"work": {"hotkey": "ctrl+alt+t", "apps": {}}}}, f)
         modes, voice = load_config.read_import_bundle(path)
         self.assertIn("work", modes)
         self.assertEqual(voice, {"aliases": {}, "settings": {}})

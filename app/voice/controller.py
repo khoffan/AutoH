@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+import time
 from dataclasses import dataclass
 from typing import Callable
 
@@ -70,8 +71,24 @@ class VoiceAssistant:
             return False
 
     def start(self) -> None:
-        """Load the speech model in the background (~3s); reload() builds the context."""
-        self.transcriber.warm_up()
+        """Load the speech model in the background (~3s); reload() builds the context.
+
+        The result is logged: the packaged app has no console, so the log is the
+        only place to see why voice is off.
+        """
+        started = time.perf_counter()
+        loader = self.transcriber.warm_up()
+
+        def report():
+            if loader is not None:
+                loader.join()
+            error = getattr(self.transcriber, "error", None)
+            if error:
+                write_log(f"Voice model not loaded: {error}", "WARN")
+            else:
+                write_log(f"Voice model loaded in {time.perf_counter() - started:.1f}s", "VOICE")
+
+        threading.Thread(target=report, name="voice-load-report", daemon=True).start()
 
     def reload(self, modes: dict) -> None:
         apps = dict(app_index.load(modes))

@@ -17,7 +17,11 @@
 - **One-Click Execution:** สั่งรันทุกอย่างผ่านคีย์ลัดที่คุณตั้งเอง (เช่น `Ctrl+Alt+W`)
 - **Smart GUI:** อินเทอร์เฟซใหม่ด้วย CustomTkinter, light mode only, plain colors และ contrast ชัดเจน
 - **Mode Management:** สร้าง แก้ไข เปลี่ยนชื่อ และลบ mode ได้จากหน้าจอเดียว
-- **Import / Export:** สำรองหรือย้าย mode ผ่านไฟล์ JSON จากหน้า Mode Manager
+- **Import / Export:** สำรองหรือย้าย mode, alias และการตั้งค่าเสียงผ่านไฟล์ JSON จากหน้า Mode Manager
+- **สั่งงานด้วยเสียง (v2.0):** กด `Ctrl+Alt+V` ค้างแล้วพูด เช่น "เปิดไลน์", "เปิดเพลง ...", "ค้นหา ...", "เปิดโฟลเดอร์ดาวน์โหลด", "ตั้งค่าไวไฟ", "เข้าโหมด work"
+  - ทำงาน offline ในเครื่อง (Typhoon ASR) ไม่ส่งเสียงออกนอกเครื่อง
+  - ไม่แน่ใจจะถามก่อน, ไม่รู้จักจะให้เลือก และจำคำที่เลือกไว้ใช้ครั้งต่อไป
+  - ตั้งค่า/จัดการคำที่จำไว้/ดูประวัติได้ที่ปุ่ม "🎙 Voice Settings" ใน Mode Manager
 - **Lightweight:** ทำงานเบื้องหลัง กินทรัพยากรเครื่องน้อยมาก
 
 ---
@@ -50,12 +54,29 @@
 ├── 📁 core         # ระบบรันโปรแกรม (Launcher) และ Hotkey
 ├── 📁 system       # การอ่านค่า Registry และ Start Menu
 ├── 📁 ui           # ส่วนติดต่อผู้ใช้ (CustomTkinter)
+├── 📁 voice        # สั่งงานด้วยเสียง: อัดเสียง, แปลงเสียง, แยกคำสั่ง, ทำงาน
 └── 🐍 main.py       # จุดเริ่มต้นของโปรแกรม
 ```
 
 ---
 
+## 🔨 Build (สำหรับนักพัฒนา)
+
+```powershell
+python -m venv venv
+venv\Scripts\python.exe -m pip install -r requirement.txt pyinstaller
+venv\Scripts\python.exe scripts\build.py
+```
+
+`scripts\build.py` รันเทสต์ → PyInstaller (`installer\AutoH.spec`, แบบ one-folder) → copy model เสียง → Inno Setup (`installer\AutoH.iss`)
+
+- ผลลัพธ์: `dist\AutoH\AutoH.exe` และ `installer-output\AutoH-Setup-<version>.exe` (เวอร์ชันอยู่ที่ `app\version.py`)
+- ต้องมีไฟล์ model int8 ใน `models\typhoon-asr-realtime\` (ไม่อยู่ใน git) ดูที่มาใน `SOURCE.txt` แล้วสร้าง int8 ด้วย `scripts\quantize_typhoon.py` (ต้อง `pip install onnx`)
+- ต้องติดตั้ง [Inno Setup 6](https://jrsoftware.org/isinfo.php) สำหรับขั้นตอน installer หรือใช้ `--no-installer`
+
+---
+
 ## 💾 การเก็บข้อมูล (Storage)
 
-config และ log เก็บในไฟล์ SQLite `%LOCALAPPDATA%\AutoH\autoh.db` และย้ายข้อมูลจาก `config.json` เดิมให้อัตโนมัติ
-รายละเอียดและสถานะการทดสอบ (ยังไม่ได้ manual test) ดูที่ [docs/storage.md](docs/storage.md)
+mode, alias, การตั้งค่า, ประวัติคำสั่ง และ log เก็บในไฟล์ SQLite `%LOCALAPPDATA%\AutoH\autoh.db` (สร้างให้อัตโนมัติ) และย้ายข้อมูลจาก `config.json` เดิมให้อัตโนมัติ
+การถอนการติดตั้งไม่ลบไฟล์นี้ รายละเอียดดูที่ [docs/storage.md](docs/storage.md)
