@@ -37,6 +37,7 @@ class ActionContext:
     open_url: Callable[[str], None] = webbrowser.open
     run_mode: Callable[[str], None] | None = None
     open_path: Callable[[str], None] | None = None   # folders and ms-settings: URIs; os.startfile
+    find_video: Callable[[str], str | None] | None = None   # query -> YouTube video id; default: web
 
 
 def _startfile(target: str) -> None:
@@ -66,6 +67,38 @@ SITES = {
 }
 
 YOUTUBE_SEARCH = "https://www.youtube.com/results?search_query="
+YOUTUBE_WATCH = "https://www.youtube.com/watch?v="
+
+
+def find_first_video(query: str, timeout: float = 4.0) -> str | None:
+    """First regular video (not ad/short) on YouTube's search page, or None.
+
+    No API key: reads the same page a browser gets. Any failure (offline, page
+    format changed) returns None and the caller falls back to the search page.
+    """
+    import re
+    import urllib.request
+
+    request = urllib.request.Request(YOUTUBE_SEARCH + quote_plus(query), headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept-Language": "th,en;q=0.8",
+    })
+    patterns = [  # most specific first; ads (adSlotRenderer) and Shorts (reel*) never match
+        r'"videoRenderer":\{"videoId":"([\w-]{11})"',
+        r'"contentId":"([\w-]{11})","contentType":"LOCKUP_CONTENT_TYPE_VIDEO"',
+        r'"url":"/watch\?v=([\w-]{11})"',
+    ]
+    for _attempt in range(2):             # one retry: the first request occasionally fails
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                html = response.read(3_000_000).decode("utf-8", "replace")
+        except Exception:
+            continue
+        for pattern in patterns:
+            match = re.search(pattern, html)
+            if match:
+                return match.group(1)
+    return None
 
 # Spoken folder name -> Windows known folder. Paths come from the shell API
 # (handles OneDrive redirection), never from what was said.
@@ -205,8 +238,12 @@ register(ActionSpec(
 
 
 def _play_music(args: dict, ctx: ActionContext) -> str:
+    video_id = (ctx.find_video or find_first_video)(args["query"])
+    if video_id:
+        ctx.open_url(YOUTUBE_WATCH + video_id)          # video page autoplays
+        return f"playing {args['query']} on YouTube"
     ctx.open_url(YOUTUBE_SEARCH + quote_plus(args["query"]))
-    return f"played {args['query']} on YouTube"
+    return f"searched {args['query']} on YouTube (no video found)"
 
 
 def _open_folder(args: dict, ctx: ActionContext) -> str:
@@ -220,7 +257,7 @@ def _open_settings(args: dict, ctx: ActionContext) -> str:
 
 
 register(ActionSpec(
-    "play_music", "Play a song or artist (searches YouTube).",
+    "play_music", "Play a song or artist (first YouTube result, autoplay).",
     {"query": {"type": "string", "description": "Song, artist or genre."}}, ("query",), Risk.SAFE,
     _play_music,
 ))

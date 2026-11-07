@@ -32,6 +32,7 @@ def make_ctx(**overrides):
         open_url=urls.append,
         run_mode=modes_run.append,
         open_path=urls.append,
+        find_video=lambda query: None,   # no network in tests: search-page fallback
     )
     for key, value in overrides.items():
         setattr(ctx, key, value)
@@ -283,6 +284,36 @@ class MoreActionsTest(unittest.TestCase):
                 item = self.run_text(text)
                 self.assertEqual((item.action.name, item.action.args["query"]), ("play_music", query))
         self.assertTrue(all(u.startswith("https://www.youtube.com/results?search_query=") for u in self.urls))
+
+    def test_music_plays_first_video_when_found(self):
+        self.ctx.find_video = lambda query: "Wk2BPFVzvlQ"
+        self.run_text("เปิดเพลงขี้หึงของซิลลี่ฟูล")
+        self.assertEqual(self.urls[-1], "https://www.youtube.com/watch?v=Wk2BPFVzvlQ")
+
+    def test_find_first_video_parsing(self):
+        from voice import actions
+
+        class FakeResponse:
+            def __init__(self, body):
+                self.body = body
+
+            def read(self, _limit):
+                return self.body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        page = (b'..."adSlotRenderer":{"videoId":"AAAAAAAAAAA"}..."reelItemRenderer":{"videoId":"BBBBBBBBBBB"}'
+                b'..."videoRenderer":{"videoId":"Wk2BPFVzvlQ","thumbnail":...')
+        with mock.patch("urllib.request.urlopen", return_value=FakeResponse(page)):
+            self.assertEqual(actions.find_first_video("x"), "Wk2BPFVzvlQ")   # skips ads/shorts
+        with mock.patch("urllib.request.urlopen", return_value=FakeResponse(b"<html>changed</html>")):
+            self.assertIsNone(actions.find_first_video("x"))
+        with mock.patch("urllib.request.urlopen", side_effect=OSError("offline")):
+            self.assertIsNone(actions.find_first_video("x"))
 
     def test_known_folders_only(self):
         item = self.run_text("เปิดโฟลเดอร์ดาวน์โหลด")
