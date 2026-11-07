@@ -86,11 +86,12 @@ def tool_definitions() -> list[dict]:
 
 def _open_app(args: dict, ctx: ActionContext) -> str:
     if ctx.open_app is None:
-        from core.launcher import safe_open_app
+        # Like clicking the icon: focus if running, launch if not (modes use safe_open_app).
+        from core.launcher import open_or_focus
 
-        safe_open_app(args["path"], args["name"])
-    else:
-        ctx.open_app(args["path"], args["name"])
+        how = open_or_focus(args["path"], args["name"])
+        return f"{how} app {args['name']}"
+    ctx.open_app(args["path"], args["name"])
     return f"opened app {args['name']}"
 
 
