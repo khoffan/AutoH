@@ -13,13 +13,18 @@ a = Analysis(
     [ROOT + "\\app\\main.py"],
     pathex=[ROOT + "\\app"],
     binaries=[],
-    datas=collect_data_files("customtkinter"),
+    datas=collect_data_files("customtkinter") + [
+        (ROOT + "\\assets\\autoH_icon.ico", "assets"),   # tray icon (ui/tray.py)
+    ],
     hiddenimports=[
         # imported lazily inside functions, so analysis may not see them
         "pythaiasr.typhoon",
         "sounddevice",
         "onnxruntime",
         "ui.voice_settings",
+        "pystray._win32",   # pystray picks its backend at runtime
+        "PIL.Image",
+        "PIL.ImageDraw",
     ],
     hookspath=[],
     hooksconfig={},

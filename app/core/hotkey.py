@@ -15,6 +15,7 @@ from core.logger import write_log
 from ui.selected_app import get_user_configuration
 from ui.status import StatusSnapshot, show_status_window
 from ui.theme import APP_THEME
+from ui.tray import TrayActions, TrayIcon
 from ui.voice_dialogs import Toast, ask_confirm, ask_pick
 from voice.controller import VoiceAssistant, VoiceUI
 
@@ -63,10 +64,19 @@ class AutoHController(ctk.CTk):
         self.reload_modes()
         self.voice.start()
         self.register_static_hotkeys()
+        self.tray = TrayIcon(TrayActions(
+            mode_manager=lambda: self.request_task(self.open_config_ui, False),
+            voice_settings=lambda: self.request_task(self.open_voice_settings),
+            status=lambda: self.request_task(self.show_status_ui, "System state overview"),
+            toggle_pause=lambda: self.request_task(self.toggle_paused),
+            is_paused=lambda: self.runtime.system_paused,
+            quit=lambda: self.request_task(self.stop_system),
+        ))
         self.after(100, self.process_tasks)
 
     def run(self):
         write_log("System started")
+        self.has_tray = self.tray.start()
         # Mode Manager opens by itself only on the very first start; voice works
         # without modes, so later starts go straight to the background.
         if not self.modes and not self._onboarded():
@@ -92,7 +102,9 @@ class AutoHController(ctk.CTk):
             pass
 
     def announce_background(self):
-        hints = ["AutoH is running in the background.", "Ctrl+Alt+E settings · Ctrl+Alt+Q quit"]
+        hints = ["AutoH is running in the background.",
+                 "Tray icon (by the clock): settings and Quit" if getattr(self, "has_tray", False)
+                 else "Ctrl+Alt+E settings · Ctrl+Alt+Q quit"]
         if self.voice_hotkey:
             hints.insert(1, f"Hold {self.voice_hotkey.title()} to talk.")
         self.show_voice_message("\n".join(hints), 6000)
@@ -316,6 +328,7 @@ class AutoHController(ctk.CTk):
             else "System resumed. Mode hotkeys are active again."
         )
         self.show_status_ui(message)
+        self.tray.refresh()
 
     def stop_system(self):
         if self.runtime.shutdown_requested:
@@ -323,6 +336,7 @@ class AutoHController(ctk.CTk):
 
         self.runtime.shutdown_requested = True
         write_log("Shutdown requested")
+        self.tray.stop()
 
         try:
             keyboard.unhook_all()

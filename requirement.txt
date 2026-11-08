@@ -6,3 +6,6 @@ numpy
 sounddevice
 onnxruntime
 pythaiasr
+# system tray icon
+pystray
+Pillow

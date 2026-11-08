@@ -8,7 +8,7 @@
 ; leaves that database in place.
 
 #ifndef MyAppVersion
-  #define MyAppVersion "2.0.0"
+  #define MyAppVersion "2.0.1"
 #endif
 #define MyAppName "AutoH"
 #define MyAppPublisher "AutoH"

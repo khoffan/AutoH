@@ -24,4 +24,7 @@ PortAudio        MIT-style            https://www.portaudio.com
 customtkinter    CC0 1.0              https://github.com/TomSchimansky/CustomTkinter
 keyboard         MIT                  https://github.com/boppreh/keyboard
 psutil           BSD-3-Clause         https://github.com/giampaolo/psutil
+pystray          LGPL-3.0             https://github.com/moses-palmer/pystray
+                 (unmodified; source at the link above)
+Pillow           MIT-CMU (HPND)       https://python-pillow.org
 Python           PSF License          https://www.python.org
