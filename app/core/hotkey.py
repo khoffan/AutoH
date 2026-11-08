@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import queue
+import sqlite3
 import time
 import webbrowser
 from dataclasses import dataclass, field
 
 import customtkinter as ctk
 import keyboard
+from config import database
 from config.load_config import load_config
 from core.launcher import safe_open_app
 from core.logger import write_log
@@ -65,9 +67,35 @@ class AutoHController(ctk.CTk):
 
     def run(self):
         write_log("System started")
-        if not self.modes:
+        # Mode Manager opens by itself only on the very first start; voice works
+        # without modes, so later starts go straight to the background.
+        if not self.modes and not self._onboarded():
             self.after(50, lambda: self.open_config_ui(startup=True))
+        else:
+            self.after(500, self.announce_background)
         self.mainloop()
+
+    @staticmethod
+    def _onboarded():
+        try:
+            with database.connect() as conn:
+                return database.get_setting(conn, "onboarded") == "1"
+        except sqlite3.Error:
+            return False
+
+    @staticmethod
+    def _mark_onboarded():
+        try:
+            with database.connect() as conn:
+                database.set_setting(conn, "onboarded", "1")
+        except sqlite3.Error:
+            pass
+
+    def announce_background(self):
+        hints = ["AutoH is running in the background.", "Ctrl+Alt+E settings · Ctrl+Alt+Q quit"]
+        if self.voice_hotkey:
+            hints.insert(1, f"Hold {self.voice_hotkey.title()} to talk.")
+        self.show_voice_message("\n".join(hints), 6000)
 
     def request_task(self, func, *args):
         self.task_queue.put((func, args))
@@ -265,13 +293,12 @@ class AutoHController(ctk.CTk):
         self.config_window = None
         self.reload_modes()
 
-        if startup and not has_modes:
-            write_log("No mode configured during startup. Shutting down.")
-            self.stop_system()
-            return
-
-        if startup and has_modes:
-            self.show_status_ui("Configuration ready. AutoH is listening for hotkeys.")
+        if startup:
+            # v1 quit here when no mode was saved. v2 keeps running: voice works
+            # without modes, and closing a window must never stop the app.
+            self._mark_onboarded()
+            write_log(f"Setup window closed ({len(self.modes)} modes); running in background")
+            self.announce_background()
 
     def start_system(self):
         self.runtime.already_opened = False
