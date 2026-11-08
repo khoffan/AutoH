@@ -25,6 +25,9 @@ a = Analysis(
         "pystray._win32",   # pystray picks its backend at runtime
         "PIL.Image",
         "PIL.ImageDraw",
+        "pycaw.pycaw",      # voice/system.py: volume (lazy import)
+        "comtypes.shelllink",
+        "comtypes.persist",
     ],
     hookspath=[],
     hooksconfig={},

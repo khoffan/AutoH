@@ -45,7 +45,8 @@ class Resolved:
     @property
     def kind(self) -> str | None:
         """Alias kind of the resolved target, or None (search)."""
-        return {"open_app": "app", "open_url": "site", "run_mode": "mode"}.get(self.action.name)
+        return {"open_app": "app", "open_url": "site", "run_mode": "mode",
+                "close_app": "app"}.get(self.action.name)
 
     @property
     def target(self) -> str | None:
@@ -56,6 +57,8 @@ def resolve(action: Action, ctx: ActionContext) -> Resolved:
     spec = REGISTRY.get(action.name)
     if spec is None:
         raise Rejected(f"Unknown action: {action.name}")
+    if spec.name in ctx.disabled:
+        raise Rejected(f"คำสั่ง \"{spec.name}\" ถูกปิดใช้ไว้ใน Voice Settings")
     args = _check_args(action.args, spec)
 
     if spec.name == "web_search":
@@ -80,6 +83,8 @@ def resolve(action: Action, ctx: ActionContext) -> Resolved:
         key, s = _match_fixed(args["page"], SETTINGS, "หน้าตั้งค่า")
         resolved = Resolved(Action("open_settings", {"page": key, "uri": SETTINGS[key]}),
                             spec, s, f"เปิดตั้งค่า {key}")
+    elif spec.name in _SYSTEM_RESOLVERS:
+        resolved = _SYSTEM_RESOLVERS[spec.name](args, spec, ctx)
     else:
         raise Rejected(f"No resolver for action: {spec.name}")
 
@@ -112,6 +117,7 @@ def suggest(term: str, ctx: ActionContext, limit: int = 5, minimum: float = 0.3)
 
 
 def _check_args(args, spec: ActionSpec) -> dict:
+    """Only declared args, each of its declared JSON type (string by default), within range."""
     if not isinstance(args, dict):
         raise Rejected("Arguments must be an object.")
     unknown = set(args) - set(spec.params)
@@ -119,15 +125,84 @@ def _check_args(args, spec: ActionSpec) -> dict:
         raise Rejected(f"Unexpected arguments: {', '.join(sorted(unknown))}")
     clean = {}
     for key, value in args.items():
-        if not isinstance(value, str) or not value.strip():
-            raise Rejected(f"'{key}' must be non-empty text.")
-        if len(value) > MAX_ARG_LENGTH:
-            raise Rejected(f"'{key}' is too long.")
-        clean[key] = value.strip()
+        schema = spec.params[key]
+        kind = schema.get("type", "string")
+        if kind == "integer":
+            clean[key] = _check_int(key, value, schema)
+        elif kind == "boolean":
+            if not isinstance(value, bool):
+                raise Rejected(f"'{key}' must be true or false.")
+            clean[key] = value
+        else:
+            if not isinstance(value, str) or not value.strip():
+                raise Rejected(f"'{key}' must be non-empty text.")
+            if len(value) > MAX_ARG_LENGTH:
+                raise Rejected(f"'{key}' is too long.")
+            clean[key] = value.strip()
     missing = [k for k in spec.required if k not in clean]
     if missing:
         raise Rejected(f"Missing: {', '.join(missing)}")
     return clean
+
+
+def _check_int(key: str, value, schema: dict) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise Rejected(f"'{key}' must be a whole number.")
+    low, high = schema.get("minimum"), schema.get("maximum")
+    if (low is not None and value < low) or (high is not None and value > high):
+        raise Rejected(f"'{key}' must be between {low} and {high}.")
+    return value
+
+
+# ---------------------------------------------------------------- system actions (v2.1)
+
+def _resolve_close_app(args: dict, spec: ActionSpec, ctx: ActionContext) -> Resolved:
+    try:
+        found = _resolve_target(args["name"], ctx, kinds=("app",))
+    except Rejected:
+        # No picker here: "search it on Google" makes no sense for closing.
+        raise Rejected(f"ไม่พบโปรแกรม \"{args['name']}\"") from None
+    name, path = found.action.args["name"], found.action.args["path"]
+    if not ctx.control().running_pids(path, name):
+        raise Rejected(f"{name} ไม่ได้เปิดอยู่")
+    return Resolved(Action("close_app", {"name": name, "path": path}), spec, found.score,
+                    f"ปิดโปรแกรม {name}", heard=found.heard, match=found.match)
+
+
+def _resolve_volume(args: dict, spec: ActionSpec, ctx: ActionContext) -> Resolved:
+    if ("level" in args) == ("delta" in args):
+        raise Rejected("ระบุระดับเสียง หรือจำนวนที่จะเพิ่ม/ลด อย่างใดอย่างหนึ่ง")
+    if "level" in args:
+        label = f"ตั้งเสียงเป็น {args['level']}%"
+    elif args["delta"] == 0:
+        raise Rejected("ไม่ได้บอกว่าจะเพิ่มหรือลดเสียงเท่าไร")
+    else:
+        label = f"{'เพิ่ม' if args['delta'] > 0 else 'ลด'}เสียง {abs(args['delta'])}%"
+    return Resolved(Action("set_volume", args), spec, 1.0, label)
+
+
+_FIXED_LABELS = {
+    "lock_screen": "ล็อกเครื่อง",
+    "sleep": "พักเครื่อง (sleep)",
+    "shutdown": "ปิดเครื่อง",
+    "restart": "รีสตาร์ทเครื่อง",
+}
+
+
+def _resolve_fixed(args: dict, spec: ActionSpec, ctx: ActionContext) -> Resolved:
+    return Resolved(Action(spec.name, {}), spec, 1.0, _FIXED_LABELS[spec.name])
+
+
+def _resolve_mute(args: dict, spec: ActionSpec, ctx: ActionContext) -> Resolved:
+    return Resolved(Action("mute", args), spec, 1.0, "ปิดเสียง" if args["on"] else "เปิดเสียง")
+
+
+_SYSTEM_RESOLVERS = {
+    "close_app": _resolve_close_app,
+    "set_volume": _resolve_volume,
+    "mute": _resolve_mute,
+    **{name: _resolve_fixed for name in _FIXED_LABELS},
+}
 
 
 def _resolve_target(term: str, ctx: ActionContext, kinds: tuple[str, ...]) -> Resolved:

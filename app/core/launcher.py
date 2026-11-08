@@ -108,11 +108,19 @@ def open_or_focus(path, process_name):
     Relaunching a running single-instance app (LINE in the tray) makes it show its
     window, the same as clicking its icon. Returns "focused" or "opened".
     """
-    normalized_path = os.path.realpath(os.path.normpath(path)) if path else ""
-    if not normalized_path or not os.path.exists(normalized_path):
-        raise FileNotFoundError(f"ไม่พบไฟล์โปรแกรม: {path}")
+    from system.store_apps import is_packaged_path
 
-    pids = _app_pids(normalized_path, process_name)
+    if is_packaged_path(path):
+        # Store app (Notepad, Calculator...): no file on disk; Windows opens it by app id.
+        normalized_path = path
+        from voice.system import default as system_control
+
+        pids = system_control().running_pids(path, process_name)
+    else:
+        normalized_path = os.path.realpath(os.path.normpath(path)) if path else ""
+        if not normalized_path or not os.path.exists(normalized_path):
+            raise FileNotFoundError(f"ไม่พบไฟล์โปรแกรม: {path}")
+        pids = _app_pids(normalized_path, process_name)
     if pids and _focus_window(pids):
         write_log(f"{process_name} focused")
         return "focused"

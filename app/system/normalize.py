@@ -129,7 +129,29 @@ def _has_valid_path(app):
     return bool(candidate and os.path.exists(candidate))
 
 
-def _is_installer(name, path):
+# Every Start Menu shortcut lives under ...\Microsoft\Windows\Start Menu\Programs\.
+# Only the part after that folder says anything about the app itself.
+_START_MENU_ROOT = re.compile(r"^.*?\\start menu\\programs\\", re.IGNORECASE)
+# Start Menu folders of Windows admin tools (Event Viewer, Registry Editor, ...).
+_ADMIN_FOLDERS = ("administrative tools\\", "windows tools\\")
+_ADMIN_NAMES = {"administrative tools", "windows tools"}
+# Start Menu links to manuals and web pages, not programs.
+_DOC_LINK = re.compile(
+    r"\b(help|manual|documentation|readme|read me|release notes|what is new|what's new|"
+    r"user guide|website|license|faq)\b", re.IGNORECASE)
+
+
+def _is_doc_link(name, path):
+    return (path or "").lower().endswith(".lnk") and bool(_DOC_LINK.search(name))
+
+
+def _searchable(name, path):
+    """Text the filters look at: name, file name, and the path minus the Start Menu root."""
+    path = (path or "").lower()
+    return " ".join([name.lower(), os.path.basename(path), _START_MENU_ROOT.sub("", path)])
+
+
+def is_installer(name, path):
     searchable = " ".join(
         [
             name.lower(),
@@ -143,24 +165,18 @@ def _is_programming_tool(name, path):
     if name.lower() in ALLOWED_TOOL_NAMES:
         return False
 
-    searchable = " ".join(
-        [
-            name.lower(),
-            os.path.basename(path).lower() if path else "",
-            path.lower() if path else "",
-        ]
-    )
+    searchable = _searchable(name, path)
     return any(word in searchable for word in PROGRAMMING_TOOL_WORDS)
 
 
 def _is_irrelevant_system_entry(name, path):
-    searchable = " ".join(
-        [
-            name.lower(),
-            os.path.basename(path).lower() if path else "",
-            path.lower() if path else "",
-        ]
-    )
+    searchable = _searchable(name, path)
+
+    relative = _START_MENU_ROOT.sub("", (path or "").lower())
+    if relative != (path or "").lower() and relative.startswith(_ADMIN_FOLDERS):
+        return True
+    if name.lower() in _ADMIN_NAMES:
+        return True
 
     is_microsoft_or_windows = (
         "microsoft" in searchable or "windows" in searchable or "ms " in searchable
@@ -177,24 +193,12 @@ def _is_irrelevant_system_entry(name, path):
 
 
 def _is_background_service_entry(name, path):
-    searchable = " ".join(
-        [
-            name.lower(),
-            os.path.basename(path).lower() if path else "",
-            path.lower() if path else "",
-        ]
-    )
+    searchable = _searchable(name, path)
     return any(word in searchable for word in SYSTEM_BACKGROUND_WORDS)
 
 
 def _is_browser_app(name, path):
-    searchable = " ".join(
-        [
-            name.lower(),
-            os.path.basename(path).lower() if path else "",
-            path.lower() if path else "",
-        ]
-    )
+    searchable = _searchable(name, path)
     if any(word in searchable for word in BROWSER_BLOCK_WORDS):
         return False
     return any(word in searchable for word in BROWSER_ALLOW_WORDS)
@@ -241,8 +245,12 @@ def normalize_apps(reg_apps, menu_apps):
         raw_path = app.get("path") or app.get("exe") or ""
         canonical_path = _canonicalize_path(raw_path)
 
-        if _is_installer(name, canonical_path):
+        if is_installer(name, canonical_path):
             print(f"--> [Filtered Out] Installer/Uninstaller detected: {name} ({raw_path})")
+            continue
+
+        if _is_doc_link(name, canonical_path):
+            print(f"--> [Filtered Out] Help/manual link detected: {name} ({raw_path})")
             continue
 
         if _is_programming_tool(name, canonical_path):

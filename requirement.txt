@@ -9,3 +9,4 @@ pythaiasr
 # system tray icon
 pystray
 Pillow
+pycaw

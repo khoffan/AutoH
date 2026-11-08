@@ -38,6 +38,15 @@ class ActionContext:
     run_mode: Callable[[str], None] | None = None
     open_path: Callable[[str], None] | None = None   # folders and ms-settings: URIs; os.startfile
     find_video: Callable[[str], str | None] | None = None   # query -> YouTube video id; default: web
+    system: object | None = None               # voice.system.SystemControl or a fake; default: real
+    disabled: set[str] = field(default_factory=set)   # action names the user turned off (v2.1)
+
+    def control(self):
+        if self.system is None:
+            from voice import system
+
+            self.system = system.default()
+        return self.system
 
 
 def _startfile(target: str) -> None:
@@ -269,4 +278,81 @@ register(ActionSpec(
     "open_settings", "Open a Windows Settings page (wifi, bluetooth, sound, display, ...).",
     {"page": {"type": "string", "description": "Settings page name."}}, ("page",), Risk.SAFE,
     _open_settings,
+))
+
+
+# ---------------------------------------------------------------- system actions (v2.1)
+VOLUME_STEP = 10          # "เพิ่มเสียง" without a number
+
+
+def _close_app(args: dict, ctx: ActionContext) -> str:
+    pids = ctx.control().running_pids(args["path"], args["name"])   # fresh: the app may have exited
+    if not pids:
+        return f"{args['name']} ไม่ได้เปิดอยู่แล้ว"
+    count = ctx.control().close_windows(pids)
+    if count == 0:
+        return f"{args['name']} ไม่มีหน้าต่างให้ปิด (อาจทำงานอยู่ใน tray)"
+    return f"closed {args['name']} ({count} window{'s' if count > 1 else ''})"
+
+
+def _set_volume(args: dict, ctx: ActionContext) -> str:
+    system = ctx.control()
+    if "level" in args:
+        level = args["level"]
+    else:
+        level = system.get_volume() + args["delta"]
+    level = max(0, min(100, level))
+    system.set_volume(level)
+    return f"volume {level}%"
+
+
+def _mute(args: dict, ctx: ActionContext) -> str:
+    ctx.control().set_mute(args["on"])
+    return "muted" if args["on"] else "unmuted"
+
+
+def _lock_screen(args: dict, ctx: ActionContext) -> str:
+    ctx.control().lock()
+    return "locked"
+
+
+def _sleep(args: dict, ctx: ActionContext) -> str:
+    ctx.control().sleep()
+    return "sleeping"
+
+
+def _shutdown(args: dict, ctx: ActionContext) -> str:
+    ctx.control().shutdown()
+    return "shutting down"
+
+
+def _restart(args: dict, ctx: ActionContext) -> str:
+    ctx.control().restart()
+    return "restarting"
+
+
+register(ActionSpec(
+    "close_app", "Close an open program by name (asks the user first; never force-kills).",
+    _NAME, ("name",), Risk.CONFIRM, _close_app,
+))
+register(ActionSpec(
+    "set_volume", "Set the speaker volume to a level (0-100) or change it by a delta (-100..100). "
+    "Give exactly one of level or delta.",
+    {"level": {"type": "integer", "minimum": 0, "maximum": 100, "description": "Volume percent."},
+     "delta": {"type": "integer", "minimum": -100, "maximum": 100, "description": "Change in percent."}},
+    (), Risk.SAFE, _set_volume,
+))
+register(ActionSpec(
+    "mute", "Mute (on=true) or unmute (on=false) the speakers.",
+    {"on": {"type": "boolean", "description": "true = mute, false = unmute."}}, ("on",), Risk.SAFE, _mute,
+))
+register(ActionSpec("lock_screen", "Lock the computer (Windows+L).", {}, (), Risk.SAFE, _lock_screen))
+register(ActionSpec("sleep", "Put the computer to sleep (asks first).", {}, (), Risk.CONFIRM, _sleep))
+register(ActionSpec(
+    "shutdown", "Shut down the computer (asks first, then a cancellable countdown).",
+    {}, (), Risk.CRITICAL, _shutdown,
+))
+register(ActionSpec(
+    "restart", "Restart the computer (asks first, then a cancellable countdown).",
+    {}, (), Risk.CRITICAL, _restart,
 ))

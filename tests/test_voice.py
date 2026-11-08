@@ -262,7 +262,10 @@ class ValidateGuardTest(unittest.TestCase):
     def test_tool_definitions(self):
         names = {t["name"] for t in tool_definitions()}
         self.assertEqual(names, {"open_app", "open_url", "web_search", "run_mode",
-                                 "play_music", "open_folder", "open_settings"})
+                                 "play_music", "open_folder", "open_settings",
+                             # v2.1 system actions (tests/test_voice_system.py)
+                             "close_app", "set_volume", "mute", "lock_screen", "sleep",
+                             "shutdown", "restart"})
 
 
 class MoreActionsTest(unittest.TestCase):

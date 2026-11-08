@@ -11,11 +11,14 @@ from __future__ import annotations
 from typing import Callable
 
 from voice import intents
-from voice.actions import ActionContext
+from voice.actions import ActionContext, Risk
 from voice.matching import normalize
 from voice.validate import AUTO_THRESHOLD, Rejected, Resolved, resolve
 
 MAX_ACTIONS = 5
+COUNTDOWN_SECONDS = 30   # Risk.CRITICAL (shutdown/restart): last chance to cancel after "yes"
+
+Countdown = Callable[[str, int], bool]   # (label, seconds) -> True = go ahead, False = cancelled
 MIN_ALIAS_LENGTH = 2
 ALIAS_KINDS = ("app", "site", "mode")
 
@@ -108,9 +111,12 @@ def execute(
     ctx: ActionContext,
     confirm: Callable[[str], bool],
     save_alias: SaveAlias | None = None,
+    countdown: Countdown | None = None,
 ) -> list[tuple[Resolved, str]]:
     """Run actions. `confirm(question)` must return False on cancel/timeout.
 
+    Risk.CRITICAL also needs `countdown(label, seconds)` to return True; without a
+    countdown callback a critical action never runs.
     A confirmed uncertain name match is learned as an alias (via `save_alias`).
     """
     results = []
@@ -121,6 +127,10 @@ def execute(
                 continue
             if item.match < AUTO_THRESHOLD and item.kind and item.heard:
                 learn_alias(item.heard, item.kind, item.target, ctx, save_alias)
+        if item.spec.risk == Risk.CRITICAL:
+            if countdown is None or not countdown(item.label, COUNTDOWN_SECONDS):
+                results.append((item, "cancelled"))
+                continue
         try:
             results.append((item, item.spec.handler(item.action.args, ctx)))
         except Exception as exc:  # handler failure must not stop the app

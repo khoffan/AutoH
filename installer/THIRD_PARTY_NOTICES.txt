@@ -27,4 +27,6 @@ psutil           BSD-3-Clause         https://github.com/giampaolo/psutil
 pystray          LGPL-3.0             https://github.com/moses-palmer/pystray
                  (unmodified; source at the link above)
 Pillow           MIT-CMU (HPND)       https://python-pillow.org
+pycaw            MIT                  https://github.com/AndreMiras/pycaw
+comtypes         MIT                  https://github.com/enthought/comtypes
 Python           PSF License          https://www.python.org

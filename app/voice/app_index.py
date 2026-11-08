@@ -16,11 +16,20 @@ def scan_apps(modes: dict | None = None) -> list[tuple[str, str, str]]:
     from system.registry import get_apps_from_registry
     from system.start_menus import get_apps_from_start_menu
 
+    from system.normalize import is_installer
+    from system.store_apps import get_store_apps
+
     found: dict[str, tuple[str, str, str]] = {}
     for app in normalize_apps(get_apps_from_registry(), get_apps_from_start_menu()):
         path = app.get("path") or app.get("exe") or ""
         if app.get("name") and path and os.path.exists(path):
             found[app["name"]] = (app["name"], path, app.get("source", "scan"))
+
+    # Store apps (Notepad, Calculator, Paint on Windows 11). Desktop entries win on equal names.
+    known = {name.lower() for name in found}
+    for app in get_store_apps():
+        if app["name"].lower() not in known and not is_installer(app["name"], ""):
+            found[app["name"]] = (app["name"], app["path"], "store")
 
     # Apps the user already picked for modes are trusted and win over scan results.
     for settings in (modes or {}).values():
