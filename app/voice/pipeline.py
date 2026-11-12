@@ -47,13 +47,14 @@ def interpret(text: str, ctx: ActionContext) -> tuple[list[Resolved], list[str]]
 
 
 FALLBACK_KINDS = ("web_search", "play_music")   # picker extras: run once, never learned
+PICK_LIMIT = 6   # known targets shown; misheard names often have several look-alikes (OneNote x3)
 
 
 def picker_options(term: str, ctx: ActionContext) -> list[tuple[str, str, float]]:
     """Closest known targets, then "search it" / "play it" so any phrase has a way out."""
     from voice.validate import suggest
 
-    return suggest(term, ctx, limit=4) + [(kind, term, 0.0) for kind in FALLBACK_KINDS]
+    return suggest(term, ctx, limit=PICK_LIMIT) + [(kind, term, 0.0) for kind in FALLBACK_KINDS]
 
 
 def apply_pick(choice: tuple[str, str] | None, term: str, text: str, ctx: ActionContext,
@@ -73,6 +74,18 @@ def apply_pick(choice: tuple[str, str] | None, term: str, text: str, ctx: Action
     if learn_alias(term, kind, name, ctx, save):
         return interpret_detail(text, ctx)
     return [], [Rejected(f"ไม่พบ \"{term}\"", term=term)]
+
+
+def declined_term(results: list[tuple[Resolved, str]]) -> str | None:
+    """Spoken name of a guessed target the user said "no" to, so the UI can offer the picker.
+
+    "เปิดโน๊ด" -> "OneNote ใช่ไหม?" -> no -> pick Notepad -> "โน๊ด" is learned.
+    Only uncertain name matches: a confident target that was declined is just cancelled.
+    """
+    for item, outcome in results:
+        if outcome == "cancelled" and item.kind and item.heard and item.match < AUTO_THRESHOLD:
+            return item.heard
+    return None
 
 
 def history_record(resolved: list[Resolved], results: list[tuple[Resolved, str]] | None,

@@ -105,7 +105,7 @@ def ask_pick(master, heard: str, options: list[tuple[str, str, float]],
              timeout_s: int = PICK_TIMEOUT_S) -> tuple[str, str] | None:
     """options: [(kind, name, score)]. Returns (kind, name) or None."""
     dialog = _Dialog(master, "AutoH", timeout_s, height=110 + 44 * len(options))
-    ctk.CTkLabel(dialog, text=f"ไม่พบ \"{heard}\" — หมายถึงอันไหน?", wraplength=360,
+    ctk.CTkLabel(dialog, text=f"\"{heard}\" หมายถึงอันไหน?", wraplength=360,
                  font=ctk.CTkFont(size=15, weight="bold"), text_color=APP_THEME["text"]
                  ).pack(padx=16, pady=(16, 8))
     labels = {"app": "โปรแกรม", "site": "เว็บ", "mode": "โหมด"}

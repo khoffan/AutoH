@@ -282,5 +282,98 @@ class RunningPidsTests(unittest.TestCase):
         self.assertEqual(lnk_target(r"C:\missing\nothing.lnk"), "")
 
 
+class MisheardNameTests(unittest.TestCase):
+    """Wrong guesses must ask (or offer a list), never run silently."""
+
+    APPS = {
+        "Notepad": "shell:AppsFolder\\Microsoft.WindowsNotepad_8wekyb3d8bbwe!App",
+        "OneNote": r"C:\Apps\OneNote\onenote.exe",
+        "Microsoft Edge": r"C:\Apps\Edge\msedge.exe",
+        "Microsoft News": r"C:\Apps\News\news.exe",
+        "Microsoft Clipchamp": r"C:\Apps\Clipchamp\clipchamp.exe",
+        "Where Winds Meet": r"C:\Games\wwm.exe",
+        "Zoom Workplace": r"C:\Apps\Zoom\zoom.exe",
+        "Zoom Workplace (64-bit)": r"C:\Apps\Zoom\zoom.exe",
+        "Steam": r"C:\Apps\Steam\steam.exe",
+    }
+
+    def ctx(self):
+        return ActionContext(apps=dict(self.APPS), modes={}, aliases={}, system=FakeSystem())
+
+    def test_two_sound_match_asks(self):
+        # "โน๊ด" -> n-t, same skeleton as OneNote: may be offered, never opened without asking
+        resolved, rejected = interpret_detail("เปิดโน๊ด", self.ctx())
+        self.assertTrue(all(item.needs_confirm for item in resolved))
+        self.assertTrue(resolved or rejected[0].term == "โน๊ด")
+
+    def test_truncated_name_is_offered(self):
+        # STT kept only the start of "notepad": Notepad must be in the pick list
+        from voice.pipeline import picker_options
+
+        names = [name for _kind, name, _s in picker_options("โน๊ด", self.ctx())]
+        self.assertIn("Notepad", names[:3])
+
+    def test_one_word_of_a_name_asks(self):
+        # "วันโน้ต" sounds like "Winds" of "Where Winds Meet"
+        [item], _ = interpret_detail("เปิดวันโน้ต", self.ctx())
+        self.assertTrue(item.needs_confirm)
+
+    def test_full_name_beats_shared_first_word(self):
+        # whole-name sound (0.9) beats "Microsoft" alone in News / Clipchamp (0.84)
+        [item], _ = interpret_detail("เปิดไมโครซอฟท์เอดจ์", self.ctx())
+        self.assertEqual(item.action.args["name"], "Microsoft Edge")
+
+    def test_close_tie_offers_choices(self):
+        ctx = self.ctx()
+        ctx.apps["Microsoft To Do"] = r"C:\Apps\Todo\todo.exe"
+        resolved, [exc] = interpret_detail("เปิดไมโครซอฟท์", ctx)
+        self.assertEqual(resolved, [])
+        self.assertEqual(exc.term, "ไมโครซอฟท์")
+        self.assertGreater(len(exc.choices), 1)
+
+    def test_same_program_twice_is_not_a_tie(self):
+        [item], rejected = interpret_detail("เปิด zoom workplace", self.ctx())
+        self.assertEqual(rejected, [])
+        self.assertTrue(item.action.args["name"].startswith("Zoom Workplace"))
+
+    def test_exact_name_never_ambiguous(self):
+        [item], _ = interpret_detail("เปิด steam", self.ctx())
+        self.assertFalse(item.needs_confirm)
+
+    def test_declined_guess_offers_picker_and_learns(self):
+        from voice.pipeline import apply_pick, declined_term
+
+        ctx = self.ctx()
+        [item], _ = interpret_detail("เปิดวันโน้ต", ctx)
+        results = execute([item], ctx, no)
+        self.assertEqual(declined_term(results), "วันโน้ต")
+        saved = []
+        opened = []
+        ctx.open_app = lambda path, name: opened.append(name)
+        resolved, _ = apply_pick(("app", "OneNote"), "วันโน้ต", "เปิดวันโน้ต", ctx,
+                                 lambda *alias: saved.append(alias))
+        execute(resolved, ctx, yes)
+        self.assertEqual(saved, [("วันโน้ต", "OneNote", "app")])
+        self.assertEqual(opened, ["OneNote"])
+        [again], _ = interpret_detail("เปิดวันโน้ต", ctx)
+        self.assertFalse(again.needs_confirm)
+
+    def test_declined_confident_target_offers_nothing(self):
+        from voice.pipeline import declined_term
+
+        ctx = self.ctx()
+        resolved, _ = interpret_detail("ปิด steam", ctx)
+        ctx.control().running.add("Steam")
+        resolved, _ = interpret_detail("ปิด steam", ctx)
+        self.assertIsNone(declined_term(execute(resolved, ctx, no)))
+
+    def test_close_ambiguous_names_choices(self):
+        ctx = self.ctx()
+        ctx.apps["Microsoft To Do"] = r"C:\Apps\Todo\todo.exe"
+        _, [exc] = interpret_detail("ปิดไมโครซอฟท์", ctx)
+        self.assertIn("ไม่แน่ใจว่าจะปิดอันไหน", str(exc))
+        self.assertIsNone(exc.term)
+
+
 if __name__ == "__main__":
     unittest.main()

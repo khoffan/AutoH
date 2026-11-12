@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from voice.actions import (
     FOLDERS, REGISTRY, SETTINGS, Action, ActionContext, ActionSpec, Risk, known_folder_path,
 )
-from voice.matching import best_match
+from voice.matching import best_match, score
 
 AUTO_THRESHOLD = 0.85   # at or above: run without asking (SAFE actions)
 ASK_THRESHOLD = 0.6     # between: ask "did you mean X?"; below: reject
@@ -21,12 +21,14 @@ MAX_ARG_LENGTH = 200
 class Rejected(Exception):
     """Action cannot run. Message is shown to the user.
 
-    `term` is set when a spoken name matched nothing, so the UI can offer suggest(term).
+    `term` is set when a spoken name matched nothing, or matched several targets
+    equally well (`choices` = their names), so the UI can offer suggest(term).
     """
 
-    def __init__(self, message: str, term: str | None = None):
+    def __init__(self, message: str, term: str | None = None, choices: list[str] | None = None):
         super().__init__(message)
         self.term = term
+        self.choices = choices or []
 
 
 @dataclass
@@ -159,8 +161,10 @@ def _check_int(key: str, value, schema: dict) -> int:
 def _resolve_close_app(args: dict, spec: ActionSpec, ctx: ActionContext) -> Resolved:
     try:
         found = _resolve_target(args["name"], ctx, kinds=("app",))
-    except Rejected:
+    except Rejected as exc:
         # No picker here: "search it on Google" makes no sense for closing.
+        if exc.choices:
+            raise Rejected(f"ไม่แน่ใจว่าจะปิดอันไหน: {' / '.join(exc.choices[:3])} — พูดชื่อให้ชัดขึ้น") from None
         raise Rejected(f"ไม่พบโปรแกรม \"{args['name']}\"") from None
     name, path = found.action.args["name"], found.action.args["path"]
     if not ctx.control().running_pids(path, name):
@@ -205,6 +209,16 @@ _SYSTEM_RESOLVERS = {
 }
 
 
+AMBIGUOUS_MARGIN = 0.05   # runner-up this close to the best (non-exact) match -> let the user pick
+
+
+def _same_key(name: str) -> str:
+    """'Zoom Workplace (64-bit)' and 'Zoom Workplace' are the same program; 'claude' site = app."""
+    from voice.matching import core_name, normalize
+
+    return normalize(core_name(name)).replace(" ", "")
+
+
 def _resolve_target(term: str, ctx: ActionContext, kinds: tuple[str, ...]) -> Resolved:
     heard = term
     # 1. Alias (e.g. "ไลน์" -> "line") may also redirect to another kind.
@@ -216,14 +230,20 @@ def _resolve_target(term: str, ctx: ActionContext, kinds: tuple[str, ...]) -> Re
 
     # 2. Best candidate across allowed kinds. Order = tie-break priority.
     pools = {"app": ctx.apps, "site": ctx.sites, "mode": ctx.modes}
-    best_kind, best_name, best_score = None, None, 0.0
-    for kind in kinds:
-        name, s = best_match(term, pools[kind])
-        if s > best_score:
-            best_kind, best_name, best_score = kind, name, s
-
-    if best_name is None or best_score < ASK_THRESHOLD:
+    ranked = sorted(
+        ((kind, name, score(term, name)) for kind in kinds for name in pools[kind]),
+        key=lambda item: -item[2],          # stable: kinds order breaks exact ties
+    )
+    if not ranked or ranked[0][2] < ASK_THRESHOLD:
         raise Rejected(f"ไม่พบ \"{term}\"", term=heard)
+    best_kind, best_name, best_score = ranked[0]
+
+    # 3. Not an exact hit and another, different target is about as close: ask, don't guess.
+    if best_score < 1.0:
+        close = [name for _kind, name, s in ranked if s > best_score - AMBIGUOUS_MARGIN]
+        distinct = list(dict.fromkeys(close, None))
+        if len({_same_key(name) for name in distinct}) > 1:
+            raise Rejected(f"ไม่แน่ใจว่า \"{heard}\" หมายถึงอันไหน", term=heard, choices=distinct)
 
     if best_kind == "app":
         action = Action("open_app", {"name": best_name, "path": ctx.apps[best_name]})

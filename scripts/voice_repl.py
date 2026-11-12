@@ -24,7 +24,9 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app"))
 
 from voice.actions import ActionContext  # noqa: E402
-from voice.pipeline import apply_pick, execute, interpret_detail, picker_options  # noqa: E402
+from voice.pipeline import (  # noqa: E402
+    apply_pick, declined_term, execute, interpret_detail, picker_options,
+)
 
 
 class FakeSystem:
@@ -207,8 +209,14 @@ def main():
         for item in resolved:
             print(f"   -> {item.label} (score {item.score:.2f}"
                   f"{', ต้องยืนยัน' if item.needs_confirm else ''})")
-        for item, result in execute(resolved, ctx, confirm, save_alias=save, countdown=countdown):
+        results = execute(resolved, ctx, confirm, save_alias=save, countdown=countdown)
+        for item, result in results:
             print(f"   = {result}")
+        term = declined_term(results)          # same as the app: "no" to a guess -> pick
+        if term:
+            resolved, _ = apply_pick(pick(term, ctx), term, text, ctx, save)
+            for item, result in execute(resolved, ctx, confirm, save_alias=save, countdown=countdown):
+                print(f"   = {item.label}: {result}")
 
 
 if __name__ == "__main__":

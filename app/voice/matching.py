@@ -64,7 +64,9 @@ _EN_FINALS = {"s": "t", "c": "t", "f": "p"}   # same idea for the last sound of 
 _THAI_CHARS = re.compile(r"[฀-๿]")
 _THAI_SILENT = re.compile(r"[ก-ฮ][ะ-ฺ็-๋]*์")  # letter + ์
 _EN_RULES = [  # applied in order, on lowercase latin text
-    (r"chr", "kr"), (r"ch|j|dge", "c"), (r"sh", "s"), (r"ph", "f"), (r"th", "t"), (r"ck", "k"),
+    # "J" is a placeholder for the จ/ช sound so the [cqg] -> k rule below cannot turn it into k
+    # ("edge" must sound like เอดจ์, not เอก). It becomes "c" at the end.
+    (r"chr", "kr"), (r"ch|j|dge", "J"), (r"sh", "s"), (r"ph", "f"), (r"th", "t"), (r"ck", "k"),
     (r"ng", "N"), (r"c(?=[eiy])", "s"), (r"[cqg]", "k"), (r"x", "ks"), (r"z", "s"), (r"d", "t"),
     (r"b", "p"), (r"v", "w"), (r"l", "r"), (r"h", ""),
     (r"(?<=[aeiou])r(?![aeiou])", ""),   # "work" -> wk, like Thai เวิร์ค
@@ -79,6 +81,7 @@ def phonetic_key(text: str) -> str:
         if word[0] <= "z":
             for pattern, repl in _EN_RULES:
                 word = re.sub(pattern, repl, word)
+            word = word.replace("J", "c")
             word = re.sub(r"(.)\1+", r"\1", word)   # "compass" -> kmps before the final
             if word and word[-1] in _EN_FINALS:
                 word = word[:-1] + _EN_FINALS[word[-1]]
@@ -114,13 +117,33 @@ def score(query: str, candidate: str) -> float:
     # Sound match only for Thai-script queries; Latin vs Latin is covered by spelling above.
     if _THAI_CHARS.search(query):
         qk = phonetic_key(query)
-        keys = [phonetic_key(core_name(candidate))]
-        keys += [k for k in (phonetic_key(w) for w in words) if len(k) >= 3] if len(words) > 1 else []
+        # (key, weight): one word of a longer name ("Microsoft" of "Microsoft Edge") weighs
+        # less than the whole name, so the full name wins instead of tying with every "Microsoft ...".
+        keys = [(phonetic_key(core_name(candidate)), 0.9)]
+        if len(words) > 1:
+            keys += [(k, WORD_SOUND_WEIGHT) for k in (phonetic_key(w) for w in words) if len(k) >= 2]
         if len(qk) >= 2:
-            for ck in keys:
+            for ck, weight in keys:
                 if len(ck) >= 2:
-                    ratio = max(ratio, 0.9 * SequenceMatcher(None, qk, ck).ratio())
+                    similarity = SequenceMatcher(None, qk, ck).ratio()
+                    if len(qk) < MIN_SURE_SOUNDS and ck.startswith(qk) and len(ck) - len(qk) <= 3:
+                        # STT often keeps only the start: "โน๊ด" (nt) for Notepad (ntpt)
+                        similarity = max(similarity, PREFIX_SIMILARITY)
+                    sound = weight * similarity
+                    if min(len(qk), len(ck)) < MIN_SURE_SOUNDS:
+                        # 2-sound skeletons collide easily: โน๊ด (nt) = OneNote (nt).
+                        # Scale (not clip) so whole-name hits still rank above one-word hits.
+                        sound *= SHORT_SOUND_CAP / 0.9
+                    ratio = max(ratio, sound)
     return ratio
+
+
+# Sound match of a single word of a multi-word name: always asks first (< AUTO 0.85).
+# "วันโน้ต" sounds like the word "Winds" of "Where Winds Meet" -- a guess, not a hit.
+WORD_SOUND_WEIGHT = 0.84
+PREFIX_SIMILARITY = 0.95  # short heard key = start of a short name: ranks above one-word hits
+MIN_SURE_SOUNDS = 3     # a sound-only match needs this many consonant sounds to run without asking
+SHORT_SOUND_CAP = 0.8    # below validate.AUTO_THRESHOLD (0.85), above ASK_THRESHOLD (0.6)
 
 
 def verb_score(heard: str, verb: str) -> float:

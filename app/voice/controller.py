@@ -16,7 +16,9 @@ from config import database
 from core.logger import write_log
 from voice import app_index
 from voice.actions import ActionContext
-from voice.pipeline import apply_pick, execute, history_record, interpret_detail, picker_options
+from voice.pipeline import (
+    apply_pick, declined_term, execute, history_record, interpret_detail, picker_options,
+)
 from voice.recorder import PushToTalkRecorder, RecorderError
 from voice.transcriber import Transcriber, TranscriberUnavailable
 
@@ -175,6 +177,13 @@ class VoiceAssistant:
                     break
 
             results = execute(resolved, self.ctx, self.ui.confirm, save_alias=_save_alias)
+
+            term = declined_term(results)   # "no" to a guess: let the user pick the right one
+            if term:
+                choice = self.ui.pick(term, picker_options(term, self.ctx))
+                if choice:
+                    resolved, rejected = apply_pick(choice, term, text, self.ctx, _save_alias)
+                    results = execute(resolved, self.ctx, self.ui.confirm, save_alias=_save_alias)
             self._record(text, resolved, results)
             self._finish(_summary(text, resolved, rejected, results))
         except Exception as exc:   # never leave the assistant stuck in busy
