@@ -16,7 +16,7 @@ from ui.selected_app import get_user_configuration
 from ui.status import StatusSnapshot, show_status_window
 from ui.theme import APP_THEME
 from ui.tray import TrayActions, TrayIcon
-from ui.voice_dialogs import Toast, ask_confirm, ask_pick
+from ui.voice_dialogs import Toast, ask_confirm, ask_countdown, ask_pick
 from voice.controller import VoiceAssistant, VoiceUI
 
 DEBOUNCE_SECOND = 2
@@ -57,6 +57,7 @@ class AutoHController(ctk.CTk):
             confirm=lambda question: ask_confirm(self, question),
             pick=lambda heard, options: ask_pick(self, heard, options) if options else None,
             run_mode=self.voice_run_mode,
+            countdown=lambda label, seconds: ask_countdown(self, label, seconds),
         ))
         self.voice_hotkey = ""          # set by register_voice_hotkey()
 

@@ -33,6 +33,7 @@ class VoiceUI:
     confirm: Callable[[str], bool]                       # yes/no, False on timeout
     pick: Callable[[str, list], tuple[str, str] | None]  # (heard, options) -> (kind, name)
     run_mode: Callable[[str], None]                      # raises RuntimeError if blocked
+    countdown: Callable[[str, int], bool] | None = None  # (label, s) -> go ahead; None = never
 
 
 class VoiceAssistant:
@@ -176,14 +177,16 @@ class VoiceAssistant:
                         resolved, rejected = apply_pick(choice, exc.term, text, self.ctx, _save_alias)
                     break
 
-            results = execute(resolved, self.ctx, self.ui.confirm, save_alias=_save_alias)
+            results = execute(resolved, self.ctx, self.ui.confirm, save_alias=_save_alias,
+                              countdown=self.ui.countdown)
 
             term = declined_term(results)   # "no" to a guess: let the user pick the right one
             if term:
                 choice = self.ui.pick(term, picker_options(term, self.ctx))
                 if choice:
                     resolved, rejected = apply_pick(choice, term, text, self.ctx, _save_alias)
-                    results = execute(resolved, self.ctx, self.ui.confirm, save_alias=_save_alias)
+                    results = execute(resolved, self.ctx, self.ui.confirm, save_alias=_save_alias,
+                              countdown=self.ui.countdown)
             self._record(text, resolved, results)
             self._finish(_summary(text, resolved, rejected, results))
         except Exception as exc:   # never leave the assistant stuck in busy

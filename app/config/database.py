@@ -50,6 +50,14 @@ DEFAULT_ALIASES = {
     "กิตฮับ": ("github", "site"),
 }
 
+# Default aliases added after the first set (release 1 = v2.0). Existing databases get
+# each later set once, see _upgrade_schema(). Add new defaults as a new release number.
+DEFAULT_ALIASES_ADDED = {
+    2: ("เครื่องคิดเลข", "แคลคูเลเตอร์", "โน้ตแพด", "โน๊ตแพด", "เพนต์", "เพ้นท์", "เทอร์มินัล",
+        "เครื่องมือสนิป", "vs code", "vscode"),   # v2.1
+}
+DEFAULT_ALIASES_VERSION = max(DEFAULT_ALIASES_ADDED)
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
@@ -303,6 +311,24 @@ def _upgrade_schema(conn: sqlite3.Connection) -> None:
         conn.executemany(
             "INSERT OR IGNORE INTO aliases (alias, target, kind) VALUES (?, ?, ?)",
             [(alias, target, kind) for alias, (target, kind) in DEFAULT_ALIASES.items()],
+        )
+        seeded = DEFAULT_ALIASES_VERSION            # fresh or v1 DB: all defaults just added
+    else:
+        row = conn.execute("SELECT value FROM meta WHERE key = 'default_aliases_version'").fetchone()
+        seeded = int(row[0]) if row and str(row[0]).isdigit() else 1
+
+    # Defaults added in later releases reach existing DBs once. INSERT OR IGNORE keeps
+    # the user's own mapping for the same words; a default the user deleted after it
+    # was seeded is not brought back (its release number is already recorded).
+    for release in range(seeded + 1, DEFAULT_ALIASES_VERSION + 1):
+        conn.executemany(
+            "INSERT OR IGNORE INTO aliases (alias, target, kind) VALUES (?, ?, ?)",
+            [(alias, *DEFAULT_ALIASES[alias]) for alias in DEFAULT_ALIASES_ADDED[release]],
+        )
+    if seeded != DEFAULT_ALIASES_VERSION or version < 2:
+        conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES ('default_aliases_version', ?)",
+            (str(DEFAULT_ALIASES_VERSION),),
         )
 
     if version != SCHEMA_VERSION:

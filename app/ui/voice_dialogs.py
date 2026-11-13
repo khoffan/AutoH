@@ -101,6 +101,39 @@ def ask_confirm(master, question: str, timeout_s: int = CONFIRM_TIMEOUT_S) -> bo
     return dialog.run() is True
 
 
+class _Countdown(_Dialog):
+    """Opposite default of _Dialog: when time runs out the action GOES AHEAD.
+
+    Shown only after the user already said yes (shutdown / restart). Cancel, Esc or
+    closing the window stops it. If AutoH exits meanwhile, nothing runs.
+    """
+
+    def __init__(self, master, label: str, seconds: int):
+        super().__init__(master, "AutoH", seconds, height=160)
+        self._label = label
+
+    def _tick(self):
+        if self._remaining <= 0:
+            self.choose(True)
+            return
+        self._timer.configure(text=f"{self._label}ใน {self._remaining} วินาที")
+        self._remaining -= 1
+        self.after(1000, self._tick)
+
+
+def ask_countdown(master, label: str, seconds: int) -> bool:
+    """True = time ran out, go ahead. False = cancelled."""
+    dialog = _Countdown(master, label, seconds)
+    ctk.CTkLabel(dialog, text=f"⏳ กำลังจะ{label}", wraplength=360,
+                 font=ctk.CTkFont(size=15, weight="bold"), text_color=APP_THEME["text"]
+                 ).pack(padx=16, pady=(16, 10))
+    ctk.CTkButton(dialog, text="ยกเลิก (Esc)", command=dialog.cancel,
+                  fg_color=APP_THEME["danger"], hover_color=APP_THEME["danger_hover"],
+                  text_color=APP_THEME["danger_text"]).pack(fill="x", padx=16)
+    dialog._timer.configure(font=ctk.CTkFont(size=14, weight="bold"), text_color=APP_THEME["danger"])
+    return dialog.run() is True
+
+
 def ask_pick(master, heard: str, options: list[tuple[str, str, float]],
              timeout_s: int = PICK_TIMEOUT_S) -> tuple[str, str] | None:
     """options: [(kind, name, score)]. Returns (kind, name) or None."""

@@ -39,21 +39,28 @@ def scan_apps(modes: dict | None = None) -> list[tuple[str, str, str]]:
     return list(found.values())
 
 
+# Bump when scan_apps() finds different apps, so cached indexes are rebuilt once.
+# 2 = v2.1: Start Menu filter fix + Microsoft Store apps.
+SCAN_VERSION = 2
+
+
 def refresh(modes: dict | None = None) -> dict[str, str]:
     apps = scan_apps(modes)
     try:
         with database.connect() as conn:
             database.write_app_index(conn, apps)
+            database.set_setting(conn, "app_index_version", str(SCAN_VERSION))
     except sqlite3.Error as exc:
         print(f"Cannot save app index: {exc}")
     return {name: path for name, path, _ in apps}
 
 
 def load(modes: dict | None = None) -> dict[str, str]:
-    """Cached index; scans on first use."""
+    """Cached index; scans on first use and once after a scanner upgrade."""
     try:
         with database.connect() as conn:
             apps = database.read_app_index(conn)
+            current = database.get_setting(conn, "app_index_version", "1") == str(SCAN_VERSION)
     except sqlite3.Error:
-        apps = {}
-    return apps or refresh(modes)
+        apps, current = {}, False
+    return apps if apps and current else refresh(modes)
