@@ -361,8 +361,31 @@ def write_alias(conn: sqlite3.Connection, alias: str, target: str, kind: str) ->
     )
 
 
-VOICE_SETTING_KEYS = ("voice_enabled", "voice_hotkey")   # only these travel in JSON files
+VOICE_SETTING_KEYS = ("voice_enabled", "voice_hotkey", "disabled_actions")   # only these travel in JSON
 ALIAS_KINDS = ("app", "site", "mode")
+
+
+def read_disabled_actions(conn: sqlite3.Connection) -> set[str]:
+    """Voice actions the user turned off (v2.1). Stored as a JSON list in settings."""
+    try:
+        names = json.loads(get_setting(conn, "disabled_actions", "[]") or "[]")
+    except ValueError:
+        return set()
+    return {name for name in names if isinstance(name, str)} if isinstance(names, list) else set()
+
+
+def write_disabled_actions(conn: sqlite3.Connection, names) -> None:
+    set_setting(conn, "disabled_actions", json.dumps(sorted(set(names))))
+
+
+def _check_disabled_actions(value: str) -> str:
+    try:
+        names = json.loads(value)
+    except ValueError:
+        names = None
+    if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+        raise ValueError('"disabled_actions" must be a JSON list of action names.')
+    return json.dumps(sorted(set(names)))
 
 
 def normalize_voice(data) -> dict:
@@ -387,7 +410,12 @@ def normalize_voice(data) -> dict:
     for key, value in (data.get("settings") or {}).items():
         if key not in VOICE_SETTING_KEYS:
             raise ValueError(f"Unknown voice setting '{key}'.")
-        settings[key] = str(value).strip()
+        if key == "disabled_actions":
+            if isinstance(value, list):            # hand-edited files may use a real list
+                value = json.dumps(value)
+            settings[key] = _check_disabled_actions(str(value))
+        else:
+            settings[key] = str(value).strip()
     return {"aliases": aliases, "settings": settings}
 
 

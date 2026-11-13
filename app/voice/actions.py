@@ -282,6 +282,16 @@ register(ActionSpec(
 
 
 # ---------------------------------------------------------------- system actions (v2.1)
+# Actions the user can turn off in Voice Settings (setting "disabled_actions"), with their labels.
+SYSTEM_ACTION_LABELS = {
+    "close_app": "ปิดโปรแกรม",
+    "set_volume": "ปรับระดับเสียง",
+    "mute": "ปิด / เปิดเสียง",
+    "lock_screen": "ล็อกเครื่อง",
+    "sleep": "พักเครื่อง (sleep)",
+    "shutdown": "ปิดเครื่อง",
+    "restart": "รีสตาร์ทเครื่อง",
+}
 VOLUME_STEP = 10          # "เพิ่มเสียง" without a number
 
 

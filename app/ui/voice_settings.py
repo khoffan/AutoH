@@ -1,4 +1,4 @@
-"""Voice Settings window: general (on/off, hotkey, rescan), aliases, command history."""
+"""Voice Settings window: general (on/off, hotkey, rescan, system commands), aliases, history."""
 from __future__ import annotations
 
 import json
@@ -10,6 +10,7 @@ import customtkinter as ctk
 from config import database
 from ui.theme import APP_THEME, PADDING, fit_and_center_window
 from voice import intents
+from voice.actions import SYSTEM_ACTION_LABELS
 from voice.controller import VoiceAssistant, validate_voice_hotkey
 
 HISTORY_LIMIT = 100
@@ -88,7 +89,42 @@ class VoiceSettingsWindow(ctk.CTkToplevel):
                                                         padx=PADDING["panel"])
         _button(tab, "สแกนโปรแกรมใหม่", self.rescan, width=160).grid(
             row=4, column=2, padx=(0, PADDING["panel"]))
+        self._build_action_switches(tab, row=5)
         self._refresh_status()
+
+    def _build_action_switches(self, tab, row):
+        """System commands on/off (v2.1). Saved on every toggle; applies to the next command."""
+        ctk.CTkFrame(tab, height=1, fg_color=APP_THEME["panel_border"]).grid(
+            row=row, column=0, columnspan=3, sticky="ew", padx=PADDING["panel"], pady=12)
+        ctk.CTkLabel(tab, text="คำสั่งระบบที่ใช้ได้ (ปิด = พูดแล้วไม่ทำ)", text_color=APP_THEME["text"],
+                     font=ctk.CTkFont(weight="bold")).grid(
+            row=row + 1, column=0, columnspan=3, sticky="w", padx=PADDING["panel"])
+        box = ctk.CTkFrame(tab, fg_color="transparent")
+        box.grid(row=row + 2, column=0, columnspan=3, sticky="ew", padx=PADDING["panel"], pady=(4, 0))
+        box.grid_columnconfigure((0, 1), weight=1)
+
+        disabled = self._read_disabled()
+        self.action_vars = {}
+        for n, (name, label) in enumerate(SYSTEM_ACTION_LABELS.items()):
+            var = ctk.BooleanVar(value=name not in disabled)
+            self.action_vars[name] = var
+            ctk.CTkSwitch(box, text=label, variable=var, command=self.save_action_switches,
+                          text_color=APP_THEME["text"]).grid(row=n // 2, column=n % 2, sticky="w", pady=4)
+
+    @staticmethod
+    def _read_disabled() -> set:
+        try:
+            with database.connect() as conn:
+                return database.read_disabled_actions(conn)
+        except sqlite3.Error:
+            return set()
+
+    def save_action_switches(self):
+        off = [name for name, var in self.action_vars.items() if not var.get()]
+        if not self._write(lambda conn: database.write_disabled_actions(conn, off)):
+            return
+        self._refresh_status("✓ บันทึกแล้ว" + (f" (ปิด: {', '.join(SYSTEM_ACTION_LABELS[n] for n in off)})"
+                                               if off else " (เปิดทุกคำสั่ง)"))
 
     def _refresh_status(self, extra=""):
         text = f"สถานะ: {self.host.voice_status()}"
@@ -205,8 +241,9 @@ class VoiceSettingsWindow(ctk.CTkToplevel):
                 func(conn)
         except sqlite3.Error as exc:
             self.alias_feedback.configure(text=f"✗ บันทึกไม่ได้: {exc}")
-            return
-        self.host.on_aliases_changed()
+            return False
+        self.host.on_aliases_changed()   # reloads the voice context (aliases, disabled actions)
+        return True
 
     # ------------------------------------------------------------ history
 

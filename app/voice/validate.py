@@ -9,7 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from voice.actions import (
-    FOLDERS, REGISTRY, SETTINGS, Action, ActionContext, ActionSpec, Risk, known_folder_path,
+    FOLDERS, REGISTRY, SETTINGS, SYSTEM_ACTION_LABELS, Action, ActionContext, ActionSpec, Risk,
+    known_folder_path,
 )
 from voice.matching import best_match, score
 
@@ -60,7 +61,8 @@ def resolve(action: Action, ctx: ActionContext) -> Resolved:
     if spec is None:
         raise Rejected(f"Unknown action: {action.name}")
     if spec.name in ctx.disabled:
-        raise Rejected(f"คำสั่ง \"{spec.name}\" ถูกปิดใช้ไว้ใน Voice Settings")
+        label = SYSTEM_ACTION_LABELS.get(spec.name, spec.name)
+        raise Rejected(f"คำสั่ง \"{label}\" ถูกปิดใช้ไว้ใน Voice Settings")
     args = _check_args(action.args, spec)
 
     if spec.name == "web_search":

@@ -100,9 +100,11 @@ class VoiceAssistant:
         try:
             with database.connect() as conn:
                 aliases = database.read_aliases(conn)
+                disabled = database.read_disabled_actions(conn)
         except sqlite3.Error:
-            aliases = dict(database.DEFAULT_ALIASES)
+            aliases, disabled = dict(database.DEFAULT_ALIASES), set()
         self.ctx.apps, self.ctx.modes, self.ctx.aliases = apps, modes, aliases
+        self.ctx.disabled = disabled
         self.ctx.run_mode = self.ui.run_mode
 
     @property

@@ -17,7 +17,9 @@ V20_DEFAULTS = [alias for alias in database.DEFAULT_ALIASES
                 if alias not in database.DEFAULT_ALIASES_ADDED[2]]
 
 
-class UpgradeTest(unittest.TestCase):
+class TempDBCase(unittest.TestCase):
+    """Each test gets its own database file."""
+
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         self.path = os.path.join(self.tmp, "autoh.db")
@@ -44,6 +46,7 @@ class UpgradeTest(unittest.TestCase):
             for alias, target, kind in extra_aliases:
                 database.write_alias(conn, alias, target, kind)
 
+class UpgradeTest(TempDBCase):
     def test_fresh_db_has_all_defaults(self):
         with self.db() as conn:
             aliases = database.read_aliases(conn)
@@ -80,6 +83,57 @@ class UpgradeTest(unittest.TestCase):
         self.assertEqual(len(scans), 1)
         self.assertIn("Notepad", first)
         self.assertEqual(first, second)
+
+
+class DisabledActionsTest(TempDBCase):
+    """M2: system commands switched off in Voice Settings."""
+
+    def test_default_none_disabled(self):
+        with self.db() as conn:
+            self.assertEqual(database.read_disabled_actions(conn), set())
+
+    def test_write_read_round_trip(self):
+        with self.db() as conn:
+            database.write_disabled_actions(conn, ["shutdown", "restart", "shutdown"])
+        with self.db() as conn:
+            self.assertEqual(database.read_disabled_actions(conn), {"shutdown", "restart"})
+
+    def test_corrupt_value_means_none_disabled(self):
+        with self.db() as conn:
+            database.set_setting(conn, "disabled_actions", "{not json")
+            self.assertEqual(database.read_disabled_actions(conn), set())
+
+    def test_export_and_import(self):
+        with self.db() as conn:
+            database.write_disabled_actions(conn, ["sleep"])
+            exported = database.read_voice(conn)
+        self.assertEqual(exported["settings"]["disabled_actions"], '["sleep"]')
+        voice = database.normalize_voice(exported)
+        self.assertEqual(voice["settings"]["disabled_actions"], '["sleep"]')
+        # a hand-edited file with a real JSON list is accepted too
+        voice = database.normalize_voice({"settings": {"disabled_actions": ["restart"]}})
+        self.assertEqual(voice["settings"]["disabled_actions"], '["restart"]')
+
+    def test_import_rejects_bad_value(self):
+        for bad in ("shutdown", '{"a": 1}', "[1, 2]"):
+            with self.assertRaises(ValueError, msg=bad):
+                database.normalize_voice({"settings": {"disabled_actions": bad}})
+
+    def test_reload_applies_to_commands(self):
+        from voice.controller import VoiceAssistant
+        from voice.pipeline import interpret_detail
+
+        with self.db() as conn:
+            database.write_disabled_actions(conn, ["shutdown"])
+        ui = mock.Mock()
+        assistant = VoiceAssistant(ui, transcriber=mock.Mock(), recorder=mock.Mock())
+        with mock.patch.object(database, "get_db_path", return_value=self.path), \
+             mock.patch.object(app_index, "load", return_value={}):
+            assistant.reload({})
+        self.assertEqual(assistant.ctx.disabled, {"shutdown"})
+        resolved, [rejected] = interpret_detail("ปิดเครื่อง", assistant.ctx)
+        self.assertEqual(resolved, [])
+        self.assertIn('"ปิดเครื่อง" ถูกปิดใช้', str(rejected))
 
 
 if __name__ == "__main__":
